@@ -1,0 +1,95 @@
+[project]
+name = "tg-shop-engine"
+version = "0.1.0"
+description = "Telegram e-commerce bot engine for Russian market (MVP)"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "tg-shop-engine", email = "dev@tg-shop-engine.local"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: Django :: 5",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+
+dependencies = [
+    "aiogram>=3.0,<4",           # Telegram bot framework
+    "Django>=5.0,<6",            # Web framework and ORM
+    "yookassa>=3.0,<4",          # YooKassa payment SDK
+    "httpx>=0.27,<1",            # HTTP client for DaData
+    "Pillow>=10.0,<13",          # Image processing
+    "structlog>=24.1,<26",       # Structured logging
+    "psycopg2-binary>=2.9,<3",   # PostgreSQL adapter
+    "redis>=5.0,<8",              # Redis client for FSM cache
+]
+
+[dependency-groups]
+test = [
+    "pytest>=8.0,<10",
+    "pytest-asyncio>=1.0,<2",
+    "pytest-django>=4.7,<5",
+    "factory-boy>=3.3,<4",
+    "pytest-cov>=6.0,<8",
+]
+
+dev = [
+    {include-group = "test"},
+    "ruff>=0.15,<1",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "*.egg-info",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bot", "core", "shop", "payments", "tests"]
+known-third-party = ["aiogram", "django", "yookassa", "httpx", "PIL", "redis"]
+default-section = "thirdparty"
+force-sort-within-sections = true
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11"]
+build-backend = "uv_build"
