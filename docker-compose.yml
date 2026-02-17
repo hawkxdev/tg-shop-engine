@@ -1,0 +1,64 @@
+# docker-compose.yml — 4 сервиса per research.md R6
+# bot и web разделяют один образ (Dockerfile)
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tg_shop
+      POSTGRES_PASSWORD: tg_shop
+      POSTGRES_DB: tg_shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tg_shop']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://tg_shop:tg_shop@postgres:5432/tg_shop
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - '8000:8000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://tg_shop:tg_shop@postgres:5432/tg_shop
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: python -m bot.main
+
+volumes:
+  pgdata:
