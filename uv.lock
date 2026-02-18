@@ -1255,7 +1255,7 @@ wheels = [
 [[package]]
 name = "tg-shop-engine"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "aiogram" },
     { name = "django" },
