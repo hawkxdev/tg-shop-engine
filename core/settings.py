@@ -21,9 +21,9 @@ SECRET_KEY = os.environ['SECRET_KEY']
 
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = os.environ.get(
-    'ALLOWED_HOSTS', 'localhost,127.0.0.1'
-).split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(
+    ','
+)
 
 # === Приложения ===
 
@@ -84,18 +84,18 @@ DATABASES = {
         'PORT': str(_db_url.port or 5432),
         # R1: CONN_MAX_AGE=0 для bot-процесса (async context).
         # Для web-процесса можно переопределить через env.
-        'CONN_MAX_AGE': int(
-            os.environ.get('CONN_MAX_AGE', '0')
-        ),
+        'CONN_MAX_AGE': int(os.environ.get('CONN_MAX_AGE', '0')),
     },
 }
 
-# === Кеш (Redis) ===
+# === Redis ===
+
+REDIS_URL = os.environ['REDIS_URL']
 
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': os.environ['REDIS_URL'],
+        'LOCATION': REDIS_URL,
     },
 }
 
@@ -110,20 +110,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': (
-            'django.contrib.auth.password_validation'
-            '.MinimumLengthValidator'
+            'django.contrib.auth.password_validation.MinimumLengthValidator'
         ),
     },
     {
         'NAME': (
-            'django.contrib.auth.password_validation'
-            '.CommonPasswordValidator'
+            'django.contrib.auth.password_validation.CommonPasswordValidator'
         ),
     },
     {
         'NAME': (
-            'django.contrib.auth.password_validation'
-            '.NumericPasswordValidator'
+            'django.contrib.auth.password_validation.NumericPasswordValidator'
         ),
     },
 ]
