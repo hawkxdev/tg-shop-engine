@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import F
 
 from shop.models import STATUS_TRANSITIONS, Order, OrderItem, Product
+from shop.services.promo import PromoService
 
 
 class InsufficientStockError(Exception):
@@ -73,7 +74,12 @@ class OrderService:
 
         # Рассчитываем скидку
         discount_amount = Decimal('0')
-        # TODO: promo discount (T03x)
+        if promo:
+            discount_amount, delivery_cost = PromoService.apply_discount(
+                subtotal=subtotal,
+                delivery_cost=delivery_cost,
+                promo=promo,
+            )
 
         total = subtotal + delivery_cost - discount_amount
 
@@ -88,7 +94,16 @@ class OrderService:
             discount_amount=discount_amount,
             delivery_cost=delivery_cost,
             total=total,
+            promo_code=promo,
         )
+
+        # Записываем использование промокода
+        if promo:
+            PromoService.record_usage(
+                promo=promo,
+                user_tg_id=user_tg_id,
+                order=order,
+            )
 
         # Создаём позиции и списываем остатки
         for pid, qty in cart_items.items():

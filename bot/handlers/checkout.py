@@ -19,6 +19,7 @@ from bot.keyboards.checkout import (
 from bot.states.checkout import CheckoutState
 from shop.services.address import AddressService
 from shop.services.order import InsufficientStockError, OrderService
+from shop.services.promo import PromoService
 
 router = Router(name='checkout')
 
@@ -38,7 +39,11 @@ def _order_summary_text(data: dict) -> str:
     """Сформировать текст сводки заказа для подтверждения."""
     cart = data.get('cart', {})
     subtotal = _cart_subtotal(cart)
-    total = subtotal + _DELIVERY_COST
+    discount_amount = Decimal(data.get('discount_amount', '0'))
+    delivery_cost = Decimal(
+        data.get('promo_delivery_cost', str(_DELIVERY_COST))
+    )
+    total = subtotal + delivery_cost - discount_amount
 
     lines = ['<b>Ваш заказ:</b>\n']
     for item in cart.values():
@@ -48,10 +53,12 @@ def _order_summary_text(data: dict) -> str:
     lines.append(f'Телефон: {data.get("phone", "")}')
     lines.append(f'Адрес: {data.get("address", "")}')
     lines.append(f'\nСтоимость товаров: {subtotal} ₽')
-    lines.append(f'Доставка: {_DELIVERY_COST} ₽')
+    lines.append(f'Доставка: {delivery_cost} ₽')
     promo = data.get('promo_code')
     if promo:
         lines.append(f'Промокод: {promo}')
+        if discount_amount > 0:
+            lines.append(f'Скидка: -{discount_amount} ₽')
     lines.append(f'<b>Итого: {total} ₽</b>')
     return '\n'.join(lines)
 
@@ -183,9 +190,45 @@ async def on_address_retry(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(CheckoutState.waiting_promo)
 async def on_waiting_promo(message: Message, state: FSMContext) -> None:
-    """Принять промокод (без валидации в Phase 3 — добавится в T057)."""
+    """Принять и валидировать промокод через PromoService."""
     code = (message.text or '').strip().upper()
-    await state.update_data(promo_code=code)
+    if not code:
+        await message.answer(
+            'Введите промокод или нажмите «Пропустить».',
+            reply_markup=promo_keyboard(),
+        )
+        return
+
+    data = await state.get_data()
+    cart = data.get('cart', {})
+    subtotal = _cart_subtotal(cart)
+
+    promo = await sync_to_async(PromoService.validate_code)(
+        code=code,
+        user_tg_id=message.from_user.id,
+        subtotal=subtotal,
+    )
+    if promo is None:
+        await message.answer(
+            'Промокод недействителен или не может быть применён.\n'
+            'Попробуйте другой или нажмите «Пропустить».',
+            reply_markup=promo_keyboard(),
+        )
+        return
+
+    discount_amount, new_delivery = await sync_to_async(
+        PromoService.apply_discount
+    )(
+        subtotal=subtotal,
+        delivery_cost=_DELIVERY_COST,
+        promo=promo,
+    )
+    await state.update_data(
+        promo_code=code,
+        promo_id=promo.pk,
+        discount_amount=str(discount_amount),
+        promo_delivery_cost=str(new_delivery),
+    )
     await _show_order_summary(message, state, edit=False)
 
 
@@ -216,6 +259,19 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
 
     cart_items = {int(pid): item['qty'] for pid, item in cart.items()}
 
+    # Загружаем промокод из БД, если был применён
+    promo = None
+    promo_id = data.get('promo_id')
+    if promo_id:
+        from shop.models import PromoCode
+        promo = await sync_to_async(
+            PromoCode.objects.get
+        )(pk=promo_id)
+
+    delivery_cost = Decimal(
+        data.get('promo_delivery_cost', str(_DELIVERY_COST))
+    )
+
     try:
         order = await sync_to_async(OrderService.create_order)(
             user_tg_id=callback.from_user.id,
@@ -224,8 +280,8 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
             user_address=data['address'],
             user_address_raw=data.get('address_raw'),
             cart_items=cart_items,
-            promo=None,
-            delivery_cost=_DELIVERY_COST,
+            promo=promo,
+            delivery_cost=delivery_cost,
         )
     except InsufficientStockError as exc:
         await callback.message.answer(
