@@ -63,6 +63,32 @@ class OrderItemFactory(DjangoModelFactory):
     price = factory.LazyAttribute(lambda o: o.product.price)
 
 
+class PromoCodeFactory(DjangoModelFactory):
+    """Фабрика промокодов."""
+
+    class Meta:
+        model = 'shop.PromoCode'
+
+    code = factory.Sequence(lambda n: f'PROMO{n:04d}')
+    discount_type = 'percentage'
+    discount_value = factory.LazyFunction(lambda: Decimal('10.00'))
+    min_order_amount = factory.LazyFunction(lambda: Decimal('0'))
+    max_uses = None
+    max_uses_per_user = 1
+    is_active = True
+
+
+class PromoCodeUsageFactory(DjangoModelFactory):
+    """Фабрика использований промокодов."""
+
+    class Meta:
+        model = 'shop.PromoCodeUsage'
+
+    promo_code = factory.SubFactory(PromoCodeFactory)
+    user_tg_id = factory.Sequence(lambda n: 100_000 + n)
+    order = factory.SubFactory(OrderFactory)
+
+
 class PaymentFactory(DjangoModelFactory):
     """Фабрика платежей."""
 

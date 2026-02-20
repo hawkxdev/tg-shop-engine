@@ -95,6 +95,11 @@ PAYMENT_METHOD_CHOICES = [
     ('stars', 'Telegram Stars'),
 ]
 
+DISCOUNT_TYPE_CHOICES = [
+    ('percentage', 'Процент'),
+    ('free_delivery', 'Бесплатная доставка'),
+]
+
 STATUS_TRANSITIONS = {
     'new': ('pending_payment',),
     'pending_payment': ('paid', 'cancelled'),
@@ -173,6 +178,13 @@ class Order(models.Model):
         default=Decimal('0'),
     )
     total = models.DecimalField(max_digits=10, decimal_places=2)
+    promo_code = models.ForeignKey(
+        'PromoCode',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='orders',
+    )
     payment_method = models.CharField(
         max_length=10,
         choices=PAYMENT_METHOD_CHOICES,
@@ -221,3 +233,66 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f'{self.product_name} x{self.quantity}'
+
+
+class PromoCode(models.Model):
+    """Промокод на скидку."""
+
+    code = models.CharField(max_length=50, unique=True)
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DISCOUNT_TYPE_CHOICES,
+    )
+    discount_value = models.DecimalField(max_digits=5, decimal_places=2)
+    min_order_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0'),
+    )
+    max_uses = models.IntegerField(blank=True, null=True)
+    max_uses_per_user = models.IntegerField(default=1)
+    used_count = models.IntegerField(default=0)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.code
+
+    def save(self, *args, **kwargs):
+        self.code = self.code.upper()
+        super().save(*args, **kwargs)
+
+
+class PromoCodeUsage(models.Model):
+    """Факт использования промокода."""
+
+    promo_code = models.ForeignKey(
+        PromoCode,
+        on_delete=models.CASCADE,
+        related_name='usages',
+    )
+    user_tg_id = models.BigIntegerField()
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name='promo_usages',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['promo_code', 'order'],
+                name='unique_promo_per_order',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['promo_code', 'user_tg_id'],
+                name='promo_user_lookup',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.promo_code.code} → заказ {self.order_id}'
