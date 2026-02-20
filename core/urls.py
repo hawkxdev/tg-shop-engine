@@ -10,9 +10,10 @@ URL-конфигурация tg-shop-engine.
 from django.contrib import admin
 from django.urls import path
 
+from payments.views import telegram_webhook, yookassa_webhook
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Webhook endpoints добавляются в Phase 5 (payments)
-    # path('webhook/telegram', ...),
-    # path('webhook/yookassa', ...),
+    path('webhook/telegram', telegram_webhook),
+    path('webhook/yookassa', yookassa_webhook),
 ]

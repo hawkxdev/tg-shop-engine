@@ -8,40 +8,17 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.redis import RedisStorage
 from django.conf import settings
 import structlog
 
-from bot.handlers.start import router as start_router
-from bot.middlewares.throttling import ThrottlingMiddleware
+from bot.setup import create_bot, create_dispatcher
 
 logger = structlog.get_logger(__name__)
 
 
-def create_dispatcher() -> Dispatcher:
-    """Создаёт Dispatcher с RedisStorage и подключёнными роутерами."""
-    storage = RedisStorage.from_url(settings.REDIS_URL)
-    dp = Dispatcher(storage=storage)
-    dp.message.middleware(ThrottlingMiddleware())
-    dp.include_router(start_router)
-    # Роутеры подключаются по мере реализации обработчиков:
-    # dp.include_router(...)  # T040: каталог
-    # dp.include_router(...)  # T042: корзина
-    # dp.include_router(...)  # T045: оформление заказа
-    # dp.include_router(...)  # T046: оплата
-    # dp.include_router(...)  # T074: статус заказа
-    return dp
-
-
 async def main() -> None:
     """Точка входа: polling или webhook режим."""
-    bot = Bot(
-        token=settings.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
+    bot = create_bot()
     dp = create_dispatcher()
 
     if settings.WEBHOOK_URL:

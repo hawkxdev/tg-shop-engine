@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from yookassa import Payment as YooKassaPayment
 
+from bot.services.notification import NotificationService
 from payments.models import Payment
 
 logger = logging.getLogger(__name__)
@@ -112,3 +113,11 @@ class PaymentService:
         order = payment.order
         order.status = 'paid'
         order.save(update_fields=['status', 'updated_at'])
+
+        # Уведомление покупателя (в async-контексте будет awaited из view)
+        NotificationService.notify_buyer(
+            bot=None,
+            user_tg_id=order.user_tg_id,
+            order=order,
+            event='payment_success',
+        )

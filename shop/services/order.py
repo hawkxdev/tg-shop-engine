@@ -83,7 +83,7 @@ class OrderService:
             user_phone=user_phone,
             user_address=user_address,
             user_address_raw=user_address_raw,
-            status='pending_payment',
+            status='new',
             subtotal=subtotal,
             discount_amount=discount_amount,
             delivery_cost=delivery_cost,
