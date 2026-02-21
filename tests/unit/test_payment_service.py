@@ -1,4 +1,4 @@
-"""Юнит-тесты PaymentService (T025 + T026)."""
+"""Юнит-тесты PaymentService (T025 + T026 + T059 + T060)."""
 
 from decimal import Decimal
 import json
@@ -160,3 +160,108 @@ class TestHandleYookassaWebhook:
 
         order.refresh_from_db()
         assert order.status == 'paid'
+
+
+# === T059: create_stars_invoice ===
+
+
+@pytest.mark.django_db
+class TestCreateStarsInvoice:
+    """Тесты PaymentService.create_stars_invoice()."""
+
+    def test_creates_payment_record(self):
+        """Создаётся запись Payment с provider=stars, currency=XTR."""
+        order = _create_order()
+
+        PaymentService.create_stars_invoice(order)
+
+        payment = Payment.objects.get(order=order)
+        assert payment.provider == 'stars'
+        assert payment.currency == 'XTR'
+
+    def test_payload_is_order_uuid(self):
+        """payload содержит UUID заказа."""
+        order = _create_order()
+
+        result = PaymentService.create_stars_invoice(order)
+
+        assert result['payload'] == str(order.uuid)
+
+    def test_returns_xtr_prices(self):
+        """Валюта XTR и prices — непустой список."""
+        order = _create_order()
+
+        result = PaymentService.create_stars_invoice(order)
+
+        assert result['currency'] == 'XTR'
+        assert isinstance(result['prices'], list)
+        assert len(result['prices']) > 0
+
+
+# === T060: handle_stars_payment ===
+
+
+@pytest.mark.django_db
+class TestHandleStarsPayment:
+    """Тесты PaymentService.handle_stars_payment()."""
+
+    def _setup(self):
+        """Order + Payment (stars) для тестирования."""
+        order = _create_order()
+        Payment.objects.create(
+            order=order,
+            provider='stars',
+            idempotency_key=uuid.uuid4(),
+            amount=Decimal('700.00'),
+            currency='XTR',
+            status='pending',
+        )
+        return order
+
+    def test_updates_order_status_to_paid(self):
+        """Статус заказа меняется на paid."""
+        order = self._setup()
+
+        PaymentService.handle_stars_payment(
+            user_id=111,
+            payload=str(order.uuid),
+            charge_id='charge_abc',
+            amount=700,
+        )
+
+        order.refresh_from_db()
+        assert order.status == 'paid'
+
+    def test_idempotent_duplicate(self):
+        """Повторный вызов не меняет результат."""
+        order = self._setup()
+
+        PaymentService.handle_stars_payment(
+            user_id=111,
+            payload=str(order.uuid),
+            charge_id='charge_abc',
+            amount=700,
+        )
+        PaymentService.handle_stars_payment(
+            user_id=111,
+            payload=str(order.uuid),
+            charge_id='charge_abc',
+            amount=700,
+        )
+
+        order.refresh_from_db()
+        assert order.status == 'paid'
+
+    def test_stores_charge_id(self):
+        """charge_id сохраняется в Payment."""
+        order = self._setup()
+
+        PaymentService.handle_stars_payment(
+            user_id=111,
+            payload=str(order.uuid),
+            charge_id='charge_abc',
+            amount=700,
+        )
+
+        payment = Payment.objects.get(order=order)
+        assert payment.provider_payment_id == 'charge_abc'
