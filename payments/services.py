@@ -10,6 +10,7 @@ from yookassa import Payment as YooKassaPayment
 
 from bot.services.notification import NotificationService
 from payments.models import Payment
+from shop.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,37 @@ class PaymentService:
         }
 
     @staticmethod
+    def create_stars_invoice(order):
+        """Создание данных для инвойса Telegram Stars.
+
+        Args:
+            order: Order с uuid и total.
+
+        Returns:
+            dict с title, payload, currency, prices.
+        """
+        Payment.objects.create(
+            order=order,
+            provider='stars',
+            idempotency_key=order.uuid,
+            amount=order.total,
+            currency='XTR',
+            status='pending',
+        )
+
+        return {
+            'title': f'Заказ #{order.id}',
+            'payload': str(order.uuid),
+            'currency': 'XTR',
+            'prices': [
+                {
+                    'label': f'Заказ #{order.id}',
+                    'amount': int(order.total),
+                },
+            ],
+        }
+
+    @staticmethod
     @transaction.atomic
     def handle_yookassa_webhook(*, body, client_ip):
         """Обработка webhook от YooKassa.
@@ -121,3 +153,43 @@ class PaymentService:
             order=order,
             event='payment_success',
         )
+
+    @staticmethod
+    @transaction.atomic
+    def handle_stars_payment(*, user_id, payload, charge_id, amount):
+        """Обработка успешного платежа Telegram Stars.
+
+        Args:
+            user_id: Telegram ID покупателя.
+            payload: UUID заказа (строка).
+            charge_id: ID транзакции Telegram.
+            amount: Сумма в Stars.
+        """
+        order = Order.objects.select_for_update().get(uuid=payload)
+
+        # Идемпотентность: если уже оплачен — пропускаем
+        if order.status == 'paid':
+            return
+
+        payment = Payment.objects.select_for_update().get(
+            order=order, provider='stars'
+        )
+
+        payment.status = 'succeeded'
+        payment.provider_payment_id = charge_id
+        payment.provider_data = {
+            'charge_id': charge_id,
+            'user_id': user_id,
+            'amount': amount,
+        }
+        payment.save(
+            update_fields=[
+                'status',
+                'provider_payment_id',
+                'provider_data',
+                'updated_at',
+            ]
+        )
+
+        order.status = 'paid'
+        order.save(update_fields=['status', 'updated_at'])
