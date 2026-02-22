@@ -1,6 +1,7 @@
 """Сервис нормализации адреса через DaData Clean API."""
 
 import logging
+from typing import Any
 
 from django.conf import settings
 import httpx
@@ -15,7 +16,7 @@ class AddressService:
     """Нормализация адресов через DaData."""
 
     @staticmethod
-    async def normalize_address(raw_address):
+    async def normalize_address(raw_address: str) -> dict[str, Any]:
         """Нормализация адреса через DaData Clean API.
 
         Args:

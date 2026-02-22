@@ -6,7 +6,13 @@ from django.db import transaction
 from django.db.models import F
 
 from bot.services.notification import NotificationService
-from shop.models import STATUS_TRANSITIONS, Order, OrderItem, Product
+from shop.models import (
+    STATUS_TRANSITIONS,
+    Order,
+    OrderItem,
+    Product,
+    PromoCode,
+)
 from shop.services.promo import PromoService
 
 
@@ -25,15 +31,15 @@ class OrderService:
     @transaction.atomic
     def create_order(
         *,
-        user_tg_id,
-        user_name,
-        user_phone,
-        user_address,
-        user_address_raw=None,
-        cart_items,
-        promo=None,
-        delivery_cost=Decimal('0'),
-    ):
+        user_tg_id: int,
+        user_name: str,
+        user_phone: str,
+        user_address: str,
+        user_address_raw: str | None = None,
+        cart_items: dict[int, int],
+        promo: PromoCode | None = None,
+        delivery_cost: Decimal = Decimal('0'),
+    ) -> Order:
         """Создание заказа из корзины.
 
         Args:
@@ -121,7 +127,7 @@ class OrderService:
         return order
 
     @staticmethod
-    def update_status(order_id, new_status):
+    def update_status(order_id: int, new_status: str) -> Order:
         """Обновление статуса заказа с проверкой переходов.
 
         Args:

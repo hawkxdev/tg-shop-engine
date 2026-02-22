@@ -1,6 +1,14 @@
 """Сервис уведомлений покупателей и администратора."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aiogram import Bot
+
+    from shop.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +34,9 @@ class NotificationService:
     """Отправка уведомлений в Telegram."""
 
     @staticmethod
-    async def notify_buyer(bot, user_tg_id, order, event):
+    async def notify_buyer(
+        bot: Bot | None, user_tg_id: int, order: Order, event: str
+    ) -> None:
         """Уведомление покупателя о событии заказа.
 
         Args:
@@ -56,7 +66,9 @@ class NotificationService:
             )
 
     @staticmethod
-    async def notify_admin(bot, chat_id, order, event):
+    async def notify_admin(
+        bot: Bot, chat_id: int, order: Order, event: str
+    ) -> None:
         """Уведомление администратора о событии заказа.
 
         Args:

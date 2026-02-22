@@ -5,14 +5,16 @@ from decimal import Decimal
 from django.db.models import F
 from django.utils import timezone
 
-from shop.models import PromoCode, PromoCodeUsage
+from shop.models import Order, PromoCode, PromoCodeUsage
 
 
 class PromoService:
     """Операции с промокодами."""
 
     @staticmethod
-    def validate_code(*, code, user_tg_id, subtotal):
+    def validate_code(
+        *, code: str, user_tg_id: int, subtotal: Decimal
+    ) -> PromoCode | None:
         """Валидация промокода по 5 правилам.
 
         Args:
@@ -54,7 +56,9 @@ class PromoService:
         return promo
 
     @staticmethod
-    def apply_discount(*, subtotal, delivery_cost, promo):
+    def apply_discount(
+        *, subtotal: Decimal, delivery_cost: Decimal, promo: PromoCode
+    ) -> tuple[Decimal, Decimal]:
         """Расчёт скидки по типу промокода.
 
         Args:
@@ -75,7 +79,7 @@ class PromoService:
         return Decimal('0'), delivery_cost
 
     @staticmethod
-    def record_usage(*, promo, user_tg_id, order):
+    def record_usage(*, promo: PromoCode, user_tg_id: int, order: Order) -> None:
         """Запись использования промокода.
 
         Создаёт PromoCodeUsage и атомарно увеличивает

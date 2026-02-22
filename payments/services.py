@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -30,7 +31,7 @@ class PaymentService:
     """Операции с платежами."""
 
     @staticmethod
-    def create_sbp_invoice(order):
+    def create_sbp_invoice(order: Order) -> dict[str, Any]:
         """Создание счёта СБП через YooKassa.
 
         Args:
@@ -75,7 +76,7 @@ class PaymentService:
         }
 
     @staticmethod
-    def create_stars_invoice(order):
+    def create_stars_invoice(order: Order) -> dict[str, Any]:
         """Создание данных для инвойса Telegram Stars.
 
         Args:
@@ -107,7 +108,7 @@ class PaymentService:
 
     @staticmethod
     @transaction.atomic
-    def handle_yookassa_webhook(*, body, client_ip):
+    def handle_yookassa_webhook(*, body: bytes, client_ip: str) -> None:
         """Обработка webhook от YooKassa.
 
         Args:
@@ -156,7 +157,9 @@ class PaymentService:
 
     @staticmethod
     @transaction.atomic
-    def handle_stars_payment(*, user_id, payload, charge_id, amount):
+    def handle_stars_payment(
+        *, user_id: int, payload: str, charge_id: str, amount: int
+    ) -> None:
         """Обработка успешного платежа Telegram Stars.
 
         Args:
