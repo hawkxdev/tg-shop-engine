@@ -1,19 +1,19 @@
 """Сервис платежей (YooKassa + Telegram Stars)."""
 
 import json
-import logging
 from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+import structlog
 from yookassa import Payment as YooKassaPayment
 
 from bot.services.notification import NotificationService
 from payments.models import Payment
 from shop.models import Order
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Доверенные IP-адреса YooKassa
 # https://yookassa.ru/developers/using-api/webhooks
@@ -69,6 +69,11 @@ class PaymentService:
             status='pending',
         )
 
+        logger.info(
+            'sbp_invoice_created',
+            order_id=order.id,
+            payment_id=response.id,
+        )
         return {
             'payment_id': response.id,
             'confirmation_url': (response.confirmation.confirmation_url),
@@ -94,6 +99,7 @@ class PaymentService:
             status='pending',
         )
 
+        logger.info('stars_invoice_created', order_id=order.id)
         return {
             'title': f'Заказ #{order.id}',
             'payload': str(order.uuid),
@@ -146,6 +152,11 @@ class PaymentService:
         order = payment.order
         order.status = 'paid'
         order.save(update_fields=['status', 'updated_at'])
+        logger.info(
+            'yookassa_webhook_processed',
+            order_id=order.id,
+            provider_payment_id=provider_payment_id,
+        )
 
         # Уведомление покупателя (в async-контексте будет awaited из view)
         NotificationService.notify_buyer(
@@ -196,3 +207,9 @@ class PaymentService:
 
         order.status = 'paid'
         order.save(update_fields=['status', 'updated_at'])
+        logger.info(
+            'stars_payment_processed',
+            order_id=order.id,
+            charge_id=charge_id,
+            amount=amount,
+        )

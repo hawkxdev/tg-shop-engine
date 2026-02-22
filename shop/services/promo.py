@@ -4,8 +4,11 @@ from decimal import Decimal
 
 from django.db.models import F
 from django.utils import timezone
+import structlog
 
 from shop.models import Order, PromoCode, PromoCodeUsage
+
+logger = structlog.get_logger(__name__)
 
 
 class PromoService:
@@ -97,4 +100,10 @@ class PromoService:
         )
         PromoCode.objects.filter(pk=promo.pk).update(
             used_count=F('used_count') + 1,
+        )
+        logger.info(
+            'promo_code_used',
+            code=promo.code,
+            user_tg_id=user_tg_id,
+            order_id=order.id,
         )

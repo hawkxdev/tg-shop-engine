@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import F
+import structlog
 
 from bot.services.notification import NotificationService
 from shop.models import (
@@ -14,6 +15,8 @@ from shop.models import (
     PromoCode,
 )
 from shop.services.promo import PromoService
+
+logger = structlog.get_logger(__name__)
 
 
 class InsufficientStockError(Exception):
@@ -124,6 +127,13 @@ class OrderService:
             )
             Product.objects.filter(id=pid).update(stock=F('stock') - qty)
 
+        logger.info(
+            'order_created',
+            order_id=order.id,
+            user_tg_id=user_tg_id,
+            total=str(total),
+            promo=promo.code if promo else None,
+        )
         return order
 
     @staticmethod
@@ -146,8 +156,15 @@ class OrderService:
             raise InvalidStatusTransitionError(
                 f'{order.status} → {new_status} недопустим'
             )
+        old_status = order.status
         order.status = new_status
         order.save(update_fields=['status', 'updated_at'])
+        logger.info(
+            'order_status_updated',
+            order_id=order_id,
+            old_status=old_status,
+            new_status=new_status,
+        )
 
         # Уведомляем покупателя о смене статуса (fire and forget)
         NotificationService.notify_buyer(

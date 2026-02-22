@@ -1,12 +1,12 @@
 """Сервис нормализации адреса через DaData Clean API."""
 
-import logging
 from typing import Any
 
 from django.conf import settings
 import httpx
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _DADATA_CLEAN_URL = 'https://cleaner.dadata.ru/api/v1/clean/address'
 _TIMEOUT = 3.0
@@ -54,7 +54,7 @@ class AddressService:
                 },
             }
         except (httpx.TimeoutException, httpx.HTTPError) as exc:
-            logger.warning('DaData недоступен: %s', exc)
+            logger.warning('dadata_unavailable', error=str(exc))
             return _fallback(raw_address)
 
 

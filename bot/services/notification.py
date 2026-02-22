@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
+
+import structlog
 
 if TYPE_CHECKING:
     from aiogram import Bot
 
     from shop.models import Order
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _BUYER_TEMPLATES = {
     'order_confirmed': ('Ваш заказ {uuid} подтверждён.\nСумма: {total} ₽'),
@@ -48,7 +49,7 @@ class NotificationService:
         """
         template = _BUYER_TEMPLATES.get(event)
         if not template:
-            logger.warning('Неизвестное событие: %s', event)
+            logger.warning('unknown_buyer_event', event=event)
             return
 
         text = template.format(
@@ -61,8 +62,7 @@ class NotificationService:
             await bot.send_message(user_tg_id, text)
         except Exception:
             logger.exception(
-                'Не удалось отправить уведомление пользователю %s',
-                user_tg_id,
+                'buyer_notification_failed', user_tg_id=user_tg_id
             )
 
     @staticmethod
@@ -79,10 +79,7 @@ class NotificationService:
         """
         template = _ADMIN_TEMPLATES.get(event)
         if not template:
-            logger.warning(
-                'Неизвестное событие для админа: %s',
-                event,
-            )
+            logger.warning('unknown_admin_event', event=event)
             return
 
         text = template.format(
@@ -95,7 +92,4 @@ class NotificationService:
         try:
             await bot.send_message(chat_id, text)
         except Exception:
-            logger.exception(
-                'Не удалось отправить уведомление в админ-чат %s',
-                chat_id,
-            )
+            logger.exception('admin_notification_failed', chat_id=chat_id)
