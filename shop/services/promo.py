@@ -36,10 +36,7 @@ class PromoService:
             return None
 
         # Проверка общего лимита использований
-        if (
-            promo.max_uses is not None
-            and promo.used_count >= promo.max_uses
-        ):
+        if promo.max_uses is not None and promo.used_count >= promo.max_uses:
             return None
 
         # Проверка лимита на пользователя
@@ -69,9 +66,7 @@ class PromoService:
             Кортеж (discount_amount, new_delivery_cost).
         """
         if promo.discount_type == 'percentage':
-            discount_amount = (
-                subtotal * promo.discount_value / Decimal('100')
-            )
+            discount_amount = subtotal * promo.discount_value / Decimal('100')
             return discount_amount, delivery_cost
 
         if promo.discount_type == 'free_delivery':

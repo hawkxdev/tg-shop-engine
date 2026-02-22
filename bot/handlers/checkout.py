@@ -264,9 +264,8 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     promo_id = data.get('promo_id')
     if promo_id:
         from shop.models import PromoCode
-        promo = await sync_to_async(
-            PromoCode.objects.get
-        )(pk=promo_id)
+
+        promo = await sync_to_async(PromoCode.objects.get)(pk=promo_id)
 
     delivery_cost = Decimal(
         data.get('promo_delivery_cost', str(_DELIVERY_COST))
