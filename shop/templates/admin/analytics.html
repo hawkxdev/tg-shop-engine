@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block title %}Аналитика{% endblock %}
+{% block content %}
+<h1>Аналитика продаж</h1>
+<form method="get">
+  <label>С: <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"></label>
+  <label>По: <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"></label>
+  <button type="submit">Фильтровать</button>
+</form>
+<table>
+  <tr><th>Выручка</th><td>{{ total_revenue }} ₽</td></tr>
+  <tr><th>Заказов</th><td>{{ order_count }}</td></tr>
+  <tr><th>Средний чек</th><td>{{ avg_order_value }} ₽</td></tr>
+</table>
+{% endblock %}
