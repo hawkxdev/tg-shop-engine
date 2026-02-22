@@ -82,7 +82,9 @@ class PromoService:
         return Decimal('0'), delivery_cost
 
     @staticmethod
-    def record_usage(*, promo: PromoCode, user_tg_id: int, order: Order) -> None:
+    def record_usage(
+        *, promo: PromoCode, user_tg_id: int, order: Order
+    ) -> None:
         """Запись использования промокода.
 
         Создаёт PromoCodeUsage и атомарно увеличивает
