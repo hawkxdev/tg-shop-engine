@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.db import transaction
 from django.db.models import F
 
+from bot.services.notification import NotificationService
 from shop.models import STATUS_TRANSITIONS, Order, OrderItem, Product
 from shop.services.promo import PromoService
 
@@ -141,4 +142,13 @@ class OrderService:
             )
         order.status = new_status
         order.save(update_fields=['status', 'updated_at'])
+
+        # Уведомляем покупателя о смене статуса (fire and forget)
+        NotificationService.notify_buyer(
+            bot=None,
+            user_tg_id=order.user_tg_id,
+            order=order,
+            event='status_changed',
+        )
+
         return order

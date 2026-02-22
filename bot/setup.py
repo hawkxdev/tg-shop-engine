@@ -9,6 +9,7 @@ from django.conf import settings
 from bot.handlers.cart import router as cart_router
 from bot.handlers.catalog import router as catalog_router
 from bot.handlers.checkout import router as checkout_router
+from bot.handlers.order_status import router as order_status_router
 from bot.handlers.payment import router as payment_router
 from bot.handlers.start import router as start_router
 from bot.middlewares.throttling import ThrottlingMiddleware
@@ -32,4 +33,5 @@ def create_dispatcher() -> Dispatcher:
     dp.include_router(cart_router)
     dp.include_router(checkout_router)
     dp.include_router(payment_router)
+    dp.include_router(order_status_router)
     return dp
