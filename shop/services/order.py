@@ -98,7 +98,7 @@ class OrderService:
             user_name=user_name,
             user_phone=user_phone,
             user_address=user_address,
-            user_address_raw=user_address_raw,
+            user_address_raw=user_address_raw or '',
             status='new',
             subtotal=subtotal,
             discount_amount=discount_amount,

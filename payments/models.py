@@ -29,7 +29,7 @@ class Payment(models.Model):
         choices=PAYMENT_PROVIDER_CHOICES,
     )
     provider_payment_id = models.CharField(
-        max_length=100, blank=True, null=True
+        max_length=100, blank=True, default=''
     )
     idempotency_key = models.UUIDField(default=uuid.uuid4, unique=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)

@@ -17,7 +17,6 @@ from tests.factories import ProductFactory
 class TestCheckoutFlow:
     """Корзина → нормализация адреса → заказ → ссылка на оплату."""
 
-    @pytest.mark.asyncio
     async def test_cart_to_payment_link(self):
         """Полный flow: товары → заказ → payment link."""
         # 1. Товары в каталоге (sync Factory Boy через sync_to_async)

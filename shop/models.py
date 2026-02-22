@@ -160,7 +160,7 @@ class Order(models.Model):
     user_name = models.CharField(max_length=200)
     user_phone = models.CharField(max_length=20)
     user_address = models.TextField()
-    user_address_raw = models.TextField(blank=True, null=True)
+    user_address_raw = models.TextField(blank=True, default='')
     status = models.CharField(
         max_length=20,
         choices=ORDER_STATUS_CHOICES,
@@ -189,9 +189,9 @@ class Order(models.Model):
         max_length=10,
         choices=PAYMENT_METHOD_CHOICES,
         blank=True,
-        null=True,
+        default='',
     )
-    note = models.TextField(blank=True, null=True)
+    note = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

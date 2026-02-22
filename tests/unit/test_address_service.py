@@ -24,7 +24,6 @@ def dadata_client():
 class TestNormalizeAddress:
     """Тесты нормализации адреса через DaData Clean API."""
 
-    @pytest.mark.asyncio
     async def test_success(self, dadata_client):
         """DaData возвращает нормализованный адрес."""
         response = MagicMock()
@@ -48,7 +47,6 @@ class TestNormalizeAddress:
         assert result['quality_code'] == 0
         assert 'components' in result
 
-    @pytest.mark.asyncio
     async def test_timeout_fallback(self, dadata_client):
         """При таймауте — исходный адрес, quality_code=-1."""
         dadata_client.post.side_effect = httpx.TimeoutException('Таймаут')
@@ -61,7 +59,6 @@ class TestNormalizeAddress:
         assert result['quality_code'] == -1
         assert result['components'] == {}
 
-    @pytest.mark.asyncio
     async def test_error_fallback(self, dadata_client):
         """При ошибке сети — исходный адрес, quality_code=-1."""
         dadata_client.post.side_effect = httpx.HTTPError(

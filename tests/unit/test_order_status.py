@@ -13,7 +13,6 @@ from tests.factories import OrderFactory
 class TestStatusHandler:
     """Тесты /status handler."""
 
-    @pytest.mark.asyncio
     async def test_status_shows_latest_order(self):
         """Показывает последний заказ пользователя."""
         from bot.handlers.order_status import on_status  # noqa: F401
@@ -30,7 +29,6 @@ class TestStatusHandler:
         text = message.answer.call_args[0][0]
         assert str(order.uuid) in text
 
-    @pytest.mark.asyncio
     async def test_status_no_orders_message(self):
         """Сообщение «заказов нет» если у пользователя нет заказов."""
         from bot.handlers.order_status import on_status  # noqa: F401
@@ -45,7 +43,6 @@ class TestStatusHandler:
         text = message.answer.call_args[0][0]
         assert 'заказ' in text.lower()
 
-    @pytest.mark.asyncio
     async def test_status_displays_uuid_and_status(self):
         """Сообщение содержит uuid, статус и сумму заказа."""
         from bot.handlers.order_status import on_status  # noqa: F401

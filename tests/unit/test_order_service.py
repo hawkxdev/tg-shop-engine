@@ -19,7 +19,7 @@ class TestCreateOrder:
             'user_name': 'Иван Иванов',
             'user_phone': '+79991234567',
             'user_address': 'г. Москва, ул. Ленина, 1',
-            'user_address_raw': None,
+            'user_address_raw': '',
             'cart_items': cart_items,
             'promo': None,
             'delivery_cost': Decimal('300'),
