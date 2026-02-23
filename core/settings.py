@@ -1,9 +1,4 @@
-"""
-Настройки Django для tg-shop-engine.
-
-Переменные окружения загружаются из .env файла.
-Полный список переменных: см. .env.example
-"""
+"""Настройки Django."""
 
 import os
 from pathlib import Path
@@ -11,11 +6,7 @@ from urllib.parse import urlparse
 
 import structlog
 
-# === Пути ===
-
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# === Безопасность ===
 
 SECRET_KEY = os.environ['SECRET_KEY']
 
@@ -25,8 +16,6 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(
     ','
 )
 
-# === Приложения ===
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,7 +23,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Project apps
     'shop',
     'payments',
 ]
@@ -69,9 +57,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# === База данных ===
-# DATABASE_URL формат: postgres://user:password@host:port/dbname
-
 _db_url = urlparse(os.environ['DATABASE_URL'])
 
 DATABASES = {
@@ -82,13 +67,10 @@ DATABASES = {
         'PASSWORD': _db_url.password or '',
         'HOST': _db_url.hostname or 'localhost',
         'PORT': str(_db_url.port or 5432),
-        # R1: CONN_MAX_AGE=0 для bot-процесса (async context).
-        # Для web-процесса можно переопределить через env.
+        # CONN_MAX_AGE=0: async bot process, no persistent connections
         'CONN_MAX_AGE': int(os.environ.get('CONN_MAX_AGE', '0')),
     },
 }
-
-# === Redis ===
 
 REDIS_URL = os.environ['REDIS_URL']
 
@@ -98,8 +80,6 @@ CACHES = {
         'LOCATION': REDIS_URL,
     },
 }
-
-# === Валидация паролей ===
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -125,14 +105,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# === Локализация ===
-
 LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'Europe/Moscow'
 USE_I18N = True
 USE_TZ = True
-
-# === Статические и медиа файлы ===
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
@@ -140,11 +116,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# === Автоинкремент ===
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# === Structlog ===
 
 structlog.configure(
     processors=[
@@ -186,8 +158,6 @@ LOGGING = {
         },
     },
 }
-
-# === Настройки приложения ===
 
 # Telegram
 BOT_TOKEN = os.environ['BOT_TOKEN']

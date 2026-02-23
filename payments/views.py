@@ -1,4 +1,4 @@
-"""Django-представления для вебхуков Telegram и YooKassa."""
+"""Webhook представления."""
 
 import json
 import logging
@@ -12,8 +12,7 @@ from payments.services import PaymentService
 
 logger = logging.getLogger(__name__)
 
-# Ленивые синглтоны: инициализируются при первом запросе.
-# Работают корректно в ASGI-режиме (один event loop).
+# Lazy singletons: init on first request
 _bot = None
 _dp = None
 
@@ -33,20 +32,16 @@ def _get_dp():
 
 
 def _get_client_ip(request: HttpRequest) -> str:
-    """Получить IP-адрес клиента с учётом прокси."""
+    """IP клиента с учётом прокси."""
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '')
     if x_forwarded_for:
-        return x_forwarded_for.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR', '')
+        return str(x_forwarded_for).split(',')[0].strip()
+    return str(request.META.get('REMOTE_ADDR', ''))
 
 
 @csrf_exempt
 async def telegram_webhook(request: HttpRequest) -> HttpResponse:
-    """POST /webhook/telegram — принять обновление от Telegram.
-
-    Передаёт Update в aiogram Dispatcher для обработки.
-    Всегда возвращает 200 OK.
-    """
+    """Приём Telegram webhook."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 
@@ -62,11 +57,7 @@ async def telegram_webhook(request: HttpRequest) -> HttpResponse:
 
 @csrf_exempt
 async def yookassa_webhook(request: HttpRequest) -> HttpResponse:
-    """POST /webhook/yookassa — принять колбэк от YooKassa.
-
-    Верифицирует IP, передаёт тело в PaymentService.
-    Всегда возвращает 200 OK (иначе YooKassa будет повторять запросы).
-    """
+    """Приём YooKassa webhook."""
     if request.method != 'POST':
         return HttpResponse(status=405)
 

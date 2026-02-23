@@ -1,4 +1,4 @@
-"""Инлайн-клавиатуры каталога: категории, товары, карточка товара."""
+"""Клавиатуры каталога."""
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -6,10 +6,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 def categories_keyboard(
     categories: list,
 ) -> InlineKeyboardMarkup:
-    """Клавиатура со списком активных категорий.
-
-    Каждая категория — отдельная строка.
-    """
+    """Клавиатура категорий."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -28,11 +25,7 @@ def products_keyboard(
     page: int,
     total_pages: int,
 ) -> InlineKeyboardMarkup:
-    """Клавиатура со списком товаров категории с пагинацией.
-
-    Каждый товар — отдельная строка (название + цена).
-    Внизу — кнопки «Пред.» / «След.» при наличии страниц.
-    """
+    """Клавиатура товаров с пагинацией."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -76,10 +69,7 @@ def product_card_keyboard(
     product_id: int,
     category_id: int,
 ) -> InlineKeyboardMarkup:
-    """Клавиатура карточки товара.
-
-    Кнопки: «Добавить в корзину» и «Назад к категории».
-    """
+    """Клавиатура карточки товара."""
     buttons = [
         [
             InlineKeyboardButton(

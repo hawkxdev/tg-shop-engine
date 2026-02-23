@@ -1,4 +1,4 @@
-"""Django Admin — модели интернет-магазина."""
+"""Django Admin магазина."""
 
 import csv
 from datetime import date, timedelta
@@ -24,7 +24,7 @@ from shop.models import (
 
 
 class OrderItemInline(admin.TabularInline):
-    """Позиции заказа (read-only inline)."""
+    """Позиции заказа inline."""
 
     model = OrderItem
     extra = 0
@@ -84,7 +84,7 @@ class OrderAdmin(admin.ModelAdmin):
         description='Экспорт выбранных заказов в CSV',
     )
     def export_orders_csv(self, request, queryset):
-        """Экспорт заказов в CSV (UTF-8 BOM)."""
+        """Экспорт заказов в CSV."""
         output = io.StringIO()
         output.write('\ufeff')  # UTF-8 BOM
         writer = csv.writer(output)
@@ -148,12 +148,9 @@ class PromoCodeAdmin(admin.ModelAdmin):
     list_filter = ('is_active', 'discount_type')
 
 
-# === Analytics dashboard ===
-
-
 @staff_member_required
 def analytics_view(request):
-    """Панель аналитики: выручка, заказы, средний чек."""
+    """Панель аналитики."""
     date_from_str = request.GET.get('date_from')
     date_to_str = request.GET.get('date_to')
     today = timezone.now().date()

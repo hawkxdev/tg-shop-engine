@@ -1,10 +1,10 @@
-"""Инлайн-клавиатуры для процесса оформления заказа."""
+"""Клавиатуры оформления заказа."""
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def address_confirm_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура подтверждения нормализованного адреса."""
+    """Клавиатура подтверждения адреса."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -27,7 +27,7 @@ def address_confirm_keyboard() -> InlineKeyboardMarkup:
 
 
 def promo_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура шага промокода (пропустить / отмена)."""
+    """Клавиатура промокода."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -46,7 +46,7 @@ def promo_keyboard() -> InlineKeyboardMarkup:
 
 
 def order_confirm_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура подтверждения заказа (подтвердить / отмена)."""
+    """Клавиатура подтверждения заказа."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -63,7 +63,7 @@ def order_confirm_keyboard() -> InlineKeyboardMarkup:
 
 
 def payment_method_keyboard(order_id: int) -> InlineKeyboardMarkup:
-    """Клавиатура выбора способа оплаты (СБП / Telegram Stars)."""
+    """Клавиатура выбора оплаты."""
     buttons = [
         [
             InlineKeyboardButton(
@@ -88,7 +88,7 @@ def payment_method_keyboard(order_id: int) -> InlineKeyboardMarkup:
 
 
 def cancel_keyboard() -> InlineKeyboardMarkup:
-    """Кнопка отмены оформления заказа (доступна на каждом шаге)."""
+    """Кнопка отмены оформления."""
     buttons = [
         [
             InlineKeyboardButton(

@@ -1,14 +1,10 @@
-"""FSM-группа состояний для процесса оформления заказа."""
+"""FSM состояния checkout."""
 
 from aiogram.fsm.state import State, StatesGroup
 
 
 class CheckoutState(StatesGroup):
-    """Состояния FSM оформления заказа.
-
-    Поток: имя → телефон → адрес → подтверждение адреса →
-           промокод → подтверждение заказа → ожидание оплаты.
-    """
+    """Шаги оформления заказа."""
 
     waiting_name = State()
     waiting_phone = State()

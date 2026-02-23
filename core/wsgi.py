@@ -1,9 +1,4 @@
-"""
-WSGI-конфигурация для tg-shop-engine.
-
-Используется gunicorn в продакшне:
-    gunicorn core.wsgi:application
-"""
+"""WSGI конфигурация."""
 
 import os
 

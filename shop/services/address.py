@@ -17,15 +17,7 @@ class AddressService:
 
     @staticmethod
     async def normalize_address(raw_address: str) -> dict[str, Any]:
-        """Нормализация адреса через DaData Clean API.
-
-        Args:
-            raw_address: Исходная строка адреса.
-
-        Returns:
-            dict с ключами: normalized, quality_code, components.
-            При ошибке: normalized=raw_address, quality_code=-1.
-        """
+        """Нормализация адреса через DaData."""
         try:
             async with httpx.AsyncClient(
                 timeout=_TIMEOUT,
@@ -58,8 +50,8 @@ class AddressService:
             return _fallback(raw_address)
 
 
-def _fallback(raw_address):
-    """Возврат исходного адреса при ошибке."""
+def _fallback(raw_address: str) -> dict[str, Any]:
+    """Fallback при ошибке DaData."""
     return {
         'normalized': raw_address,
         'quality_code': -1,

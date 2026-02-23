@@ -17,7 +17,7 @@ PAYMENT_STATUS_CHOICES = [
 
 
 class Payment(models.Model):
-    """Запись о платеже (YooKassa или Telegram Stars)."""
+    """Запись о платеже."""
 
     order = models.ForeignKey(
         'shop.Order',

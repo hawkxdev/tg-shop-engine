@@ -18,16 +18,7 @@ class PromoService:
     def validate_code(
         *, code: str, user_tg_id: int, subtotal: Decimal
     ) -> PromoCode | None:
-        """Валидация промокода по 5 правилам.
-
-        Args:
-            code: Строка промокода.
-            user_tg_id: Telegram ID покупателя.
-            subtotal: Сумма заказа до скидки.
-
-        Returns:
-            PromoCode если валиден, иначе None.
-        """
+        """Валидация промокода."""
         try:
             promo = PromoCode.objects.get(
                 code=code.upper(),
@@ -36,15 +27,12 @@ class PromoService:
         except PromoCode.DoesNotExist:
             return None
 
-        # Проверка срока действия
         if promo.expires_at and promo.expires_at < timezone.now():
             return None
 
-        # Проверка общего лимита использований
         if promo.max_uses is not None and promo.used_count >= promo.max_uses:
             return None
 
-        # Проверка лимита на пользователя
         user_usage_count = PromoCodeUsage.objects.filter(
             promo_code=promo,
             user_tg_id=user_tg_id,
@@ -52,7 +40,6 @@ class PromoService:
         if user_usage_count >= promo.max_uses_per_user:
             return None
 
-        # Проверка минимальной суммы заказа
         if subtotal < promo.min_order_amount:
             return None
 
@@ -62,16 +49,7 @@ class PromoService:
     def apply_discount(
         *, subtotal: Decimal, delivery_cost: Decimal, promo: PromoCode
     ) -> tuple[Decimal, Decimal]:
-        """Расчёт скидки по типу промокода.
-
-        Args:
-            subtotal: Сумма заказа до скидки.
-            delivery_cost: Стоимость доставки.
-            promo: Объект PromoCode.
-
-        Returns:
-            Кортеж (discount_amount, new_delivery_cost).
-        """
+        """Расчёт скидки по промокоду."""
         if promo.discount_type == 'percentage':
             discount_amount = subtotal * promo.discount_value / Decimal('100')
             return discount_amount, delivery_cost
@@ -85,16 +63,7 @@ class PromoService:
     def record_usage(
         *, promo: PromoCode, user_tg_id: int, order: Order
     ) -> None:
-        """Запись использования промокода.
-
-        Создаёт PromoCodeUsage и атомарно увеличивает
-        used_count через F().
-
-        Args:
-            promo: Объект PromoCode.
-            user_tg_id: Telegram ID покупателя.
-            order: Объект Order.
-        """
+        """Запись использования промокода."""
         PromoCodeUsage.objects.create(
             promo_code=promo,
             user_tg_id=user_tg_id,

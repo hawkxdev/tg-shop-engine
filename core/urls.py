@@ -1,12 +1,4 @@
-"""
-URL-конфигурация tg-shop-engine.
-
-Эндпоинты:
-- /admin/ — Django Admin
-- /admin/analytics/ — панель аналитики
-- /webhook/telegram — Telegram Bot webhook
-- /webhook/yookassa — YooKassa payment callback
-"""
+"""URL конфигурация."""
 
 from django.contrib import admin
 from django.urls import path

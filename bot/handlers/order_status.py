@@ -13,6 +13,8 @@ _NO_ORDERS = 'У вас ещё нет заказов.'
 
 async def on_status(message: Message) -> None:
     """Показать статус последнего заказа пользователя."""
+    if not message.from_user:
+        return
     user_tg_id = message.from_user.id
 
     order = (

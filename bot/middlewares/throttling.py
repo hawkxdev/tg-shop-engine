@@ -9,10 +9,7 @@ from aiogram.types import TelegramObject
 
 
 class ThrottlingMiddleware(BaseMiddleware):
-    """Ограничение: 1 сообщение per rate секунд per user.
-
-    Превышающие лимит сообщения отбрасываются без уведомления.
-    """
+    """Rate limiter per user."""
 
     def __init__(self, rate: float = 0.5) -> None:
         self.rate = rate
@@ -24,7 +21,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: dict[str, Any],
     ) -> Any:
-        """Проверяет интервал между сообщениями пользователя."""
+        """Проверка интервала сообщений."""
         user = data.get('event_from_user')
         if user is not None:
             now = time.monotonic()

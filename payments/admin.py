@@ -1,4 +1,4 @@
-"""Django Admin — модели платежей (read-only)."""
+"""Django Admin платежей."""
 
 from django.contrib import admin
 
@@ -7,7 +7,7 @@ from payments.models import Payment
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    """Платежи (read-only)."""
+    """Платежи (только просмотр)."""
 
     list_display = (
         'order',

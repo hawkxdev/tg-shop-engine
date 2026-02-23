@@ -1,15 +1,10 @@
-"""Инлайн-клавиатуры корзины: товары, управление, оформление."""
+"""Клавиатуры корзины."""
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
 def cart_keyboard(cart_items: dict) -> InlineKeyboardMarkup:
-    """Клавиатура корзины с товарами и кнопками управления.
-
-    cart_items: {product_id: {'name': str, 'qty': int, 'price': Decimal}}
-    Каждый товар — строка с кнопками «−» qty «+» и «✕».
-    Внизу — «Очистить» и «Оформить заказ».
-    """
+    """Клавиатура корзины с товарами."""
     buttons = []
     for product_id, item in cart_items.items():
         name = item['name']
@@ -64,7 +59,7 @@ def cart_keyboard(cart_items: dict) -> InlineKeyboardMarkup:
 
 
 def empty_cart_keyboard() -> InlineKeyboardMarkup:
-    """Клавиатура для пустой корзины."""
+    """Клавиатура пустой корзины."""
     buttons = [
         [
             InlineKeyboardButton(

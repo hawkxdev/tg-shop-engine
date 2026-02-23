@@ -1,4 +1,4 @@
-"""Фабрики Bot и Dispatcher — общий модуль для bot/main.py и webhook-вью."""
+"""Фабрики Bot и Dispatcher."""
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -16,7 +16,7 @@ from bot.middlewares.throttling import ThrottlingMiddleware
 
 
 def create_bot() -> Bot:
-    """Создать экземпляр Bot с настройками из settings."""
+    """Создание экземпляра Bot."""
     return Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
@@ -24,7 +24,7 @@ def create_bot() -> Bot:
 
 
 def create_dispatcher() -> Dispatcher:
-    """Создать Dispatcher с RedisStorage и подключёнными роутерами."""
+    """Создание Dispatcher с роутерами."""
     storage = RedisStorage.from_url(settings.REDIS_URL)
     dp = Dispatcher(storage=storage)
     dp.message.middleware(ThrottlingMiddleware())

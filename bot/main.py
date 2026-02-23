@@ -1,4 +1,4 @@
-"""Точка входа бота: django.setup(), Dispatcher, RedisStorage."""
+"""Точка входа бота."""
 
 import asyncio
 import os
@@ -17,7 +17,7 @@ logger = structlog.get_logger(__name__)
 
 
 async def main() -> None:
-    """Точка входа: polling или webhook режим."""
+    """Запуск бота."""
     bot = create_bot()
     dp = create_dispatcher()
 
@@ -28,8 +28,7 @@ async def main() -> None:
             'бот_запущен_вебхук',
             webhook_url=webhook_url,
         )
-        # Обновления принимает Django-представление (T047).
-        # Bot-процесс ожидает завершения.
+        # Django view принимает updates, bot процесс ожидает
         try:
             await asyncio.Event().wait()
         finally:

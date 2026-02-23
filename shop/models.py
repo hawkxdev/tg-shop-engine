@@ -45,7 +45,7 @@ _TRANSLIT = {
 
 
 def _make_slug(value):
-    """Транслитерация кириллицы и генерация slug."""
+    """Транслитерация и генерация slug."""
     result = []
     for char in value.lower():
         result.append(_TRANSLIT.get(char, char))
@@ -78,8 +78,6 @@ class Category(models.Model):
             self.slug = _make_slug(self.name)
         super().save(*args, **kwargs)
 
-
-# --- Статусы заказа ---
 
 ORDER_STATUS_CHOICES = [
     ('new', 'Новый'),
@@ -213,7 +211,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    """Позиция заказа (снимок товара на момент покупки)."""
+    """Позиция заказа."""
 
     order = models.ForeignKey(
         Order,
