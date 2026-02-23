@@ -15,8 +15,6 @@ from shop.models import Order
 
 logger = structlog.get_logger(__name__)
 
-# Доверенные IP-адреса YooKassa
-# https://yookassa.ru/developers/using-api/webhooks
 _TRUSTED_IPS = frozenset(
     {
         '185.71.76.0',
@@ -32,15 +30,7 @@ class PaymentService:
 
     @staticmethod
     def create_sbp_invoice(order: Order) -> dict[str, Any]:
-        """Создание счёта СБП через YooKassa.
-
-        Args:
-            order: Order с uuid и total.
-
-        Returns:
-            dict с payment_id, confirmation_url,
-            idempotency_key.
-        """
+        """Создание счёта СБП."""
         idempotency_key = str(order.uuid)
 
         response = YooKassaPayment.create(
@@ -74,22 +64,20 @@ class PaymentService:
             order_id=order.id,
             payment_id=response.id,
         )
+        confirmation_url = (
+            response.confirmation.confirmation_url
+            if response.confirmation
+            else ''
+        )
         return {
             'payment_id': response.id,
-            'confirmation_url': (response.confirmation.confirmation_url),
+            'confirmation_url': confirmation_url,
             'idempotency_key': idempotency_key,
         }
 
     @staticmethod
     def create_stars_invoice(order: Order) -> dict[str, Any]:
-        """Создание данных для инвойса Telegram Stars.
-
-        Args:
-            order: Order с uuid и total.
-
-        Returns:
-            dict с title, payload, currency, prices.
-        """
+        """Создание инвойса Stars."""
         Payment.objects.create(
             order=order,
             provider='stars',
@@ -115,15 +103,7 @@ class PaymentService:
     @staticmethod
     @transaction.atomic
     def handle_yookassa_webhook(*, body: bytes, client_ip: str) -> None:
-        """Обработка webhook от YooKassa.
-
-        Args:
-            body: Тело запроса (bytes).
-            client_ip: IP клиента.
-
-        Raises:
-            PermissionDenied: IP не в доверенном списке.
-        """
+        """Обработка webhook YooKassa."""
         if client_ip not in _TRUSTED_IPS:
             raise PermissionDenied(f'Недоверенный IP: {client_ip}')
 
@@ -135,7 +115,6 @@ class PaymentService:
             provider_payment_id=provider_payment_id
         )
 
-        # Идемпотентность: если уже обработан — пропускаем
         if payment.status == 'succeeded':
             return
 
@@ -158,8 +137,8 @@ class PaymentService:
             provider_payment_id=provider_payment_id,
         )
 
-        # Уведомление покупателя (в async-контексте будет awaited из view)
-        NotificationService.notify_buyer(
+        # notify_buyer async из sync: MVP trade-off
+        NotificationService.notify_buyer(  # type: ignore[unused-coroutine]
             bot=None,
             user_tg_id=order.user_tg_id,
             order=order,
@@ -171,17 +150,9 @@ class PaymentService:
     def handle_stars_payment(
         *, user_id: int, payload: str, charge_id: str, amount: int
     ) -> None:
-        """Обработка успешного платежа Telegram Stars.
-
-        Args:
-            user_id: Telegram ID покупателя.
-            payload: UUID заказа (строка).
-            charge_id: ID транзакции Telegram.
-            amount: Сумма в Stars.
-        """
+        """Обработка платежа Stars."""
         order = Order.objects.select_for_update().get(uuid=payload)
 
-        # Идемпотентность: если уже оплачен — пропускаем
         if order.status == 'paid':
             return
 

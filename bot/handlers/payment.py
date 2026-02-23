@@ -1,9 +1,8 @@
-"""Обработчики оплаты: СБП через YooKassa, Telegram Stars."""
+"""Обработчики оплаты."""
 
 import contextlib
 
 from aiogram import F, Router
-from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     CallbackQuery,
     LabeledPrice,
@@ -19,8 +18,11 @@ router = Router(name='payment')
 
 
 @router.callback_query(F.data.startswith('pay:sbp:'))
-async def on_pay_sbp(callback: CallbackQuery, state: FSMContext) -> None:
-    """Создать платёж YooKassa СБП и отправить ссылку."""
+async def on_pay_sbp(callback: CallbackQuery) -> None:
+    """Создание платежа СБП."""
+    msg = callback.message
+    if not callback.data or not isinstance(msg, Message):
+        return
     order_id = int(callback.data.split(':')[2])
 
     try:
@@ -42,7 +44,7 @@ async def on_pay_sbp(callback: CallbackQuery, state: FSMContext) -> None:
         return
 
     confirmation_url = result['confirmation_url']
-    await callback.message.answer(
+    await msg.answer(
         f'Для оплаты заказа №{order.id} перейдите по '
         f'ссылке:\n{confirmation_url}\n\n'
         'После оплаты статус заказа обновится '
@@ -52,8 +54,11 @@ async def on_pay_sbp(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data.startswith('pay:stars:'))
-async def on_pay_stars(callback: CallbackQuery, state: FSMContext) -> None:
-    """Создать Stars инвойс и отправить покупателю."""
+async def on_pay_stars(callback: CallbackQuery) -> None:
+    """Создание Stars инвойса."""
+    msg = callback.message
+    if not callback.data or not isinstance(msg, Message):
+        return
     order_id = int(callback.data.split(':')[2])
 
     try:
@@ -81,7 +86,7 @@ async def on_pay_stars(callback: CallbackQuery, state: FSMContext) -> None:
         for p in invoice['prices']
     ]
 
-    await callback.message.answer_invoice(
+    await msg.answer_invoice(
         title=invoice['title'],
         description=f'Оплата заказа #{order.id}',
         payload=invoice['payload'],
@@ -96,7 +101,7 @@ async def on_pay_stars(callback: CallbackQuery, state: FSMContext) -> None:
 async def on_pre_checkout_query(
     query: PreCheckoutQuery,
 ) -> None:
-    """Проверка наличия товаров перед оплатой Stars."""
+    """Проверка наличия товаров."""
     payload = query.invoice_payload
 
     try:
@@ -105,7 +110,6 @@ async def on_pre_checkout_query(
         await query.answer(ok=False, error_message='Заказ не найден.')
         return
 
-    # Проверка остатков
     async for item in order.items.select_related('product').all():
         if item.product.stock < item.quantity:
             await query.answer(
@@ -119,7 +123,9 @@ async def on_pre_checkout_query(
 
 @router.message(F.successful_payment)
 async def on_successful_payment(message: Message) -> None:
-    """Обработка успешного платежа Telegram Stars."""
+    """Обработка успешного платежа."""
+    if not message.from_user or not message.successful_payment:
+        return
     sp = message.successful_payment
 
     await sync_to_async(PaymentService.handle_stars_payment)(
@@ -129,7 +135,6 @@ async def on_successful_payment(message: Message) -> None:
         amount=sp.total_amount,
     )
 
-    # Уведомление покупателя
     with contextlib.suppress(Exception):
         from bot.services.notification import (
             NotificationService,

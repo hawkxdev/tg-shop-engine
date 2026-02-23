@@ -43,30 +43,12 @@ class OrderService:
         promo: PromoCode | None = None,
         delivery_cost: Decimal = Decimal('0'),
     ) -> Order:
-        """Создание заказа из корзины.
-
-        Args:
-            user_tg_id: Telegram ID покупателя.
-            user_name: Имя покупателя.
-            user_phone: Телефон покупателя.
-            user_address: Нормализованный адрес.
-            user_address_raw: Исходный адрес до нормализации.
-            cart_items: Словарь {product_id: quantity}.
-            promo: Применённый промокод (или None).
-            delivery_cost: Стоимость доставки.
-
-        Returns:
-            Созданный Order.
-
-        Raises:
-            InsufficientStockError: Если товара недостаточно.
-        """
+        """Создание заказа из корзины."""
         product_ids = list(cart_items.keys())
         products = Product.objects.select_for_update().filter(
             id__in=product_ids
         )
 
-        # Проверяем остатки и собираем данные
         products_map = {}
         for product in products:
             qty = cart_items[product.id]
@@ -77,12 +59,10 @@ class OrderService:
                 )
             products_map[product.id] = product
 
-        # Рассчитываем subtotal
         subtotal = Decimal('0')
         for pid, qty in cart_items.items():
             subtotal += products_map[pid].price * qty
 
-        # Рассчитываем скидку
         discount_amount = Decimal('0')
         if promo:
             discount_amount, delivery_cost = PromoService.apply_discount(
@@ -107,7 +87,6 @@ class OrderService:
             promo_code=promo,
         )
 
-        # Записываем использование промокода
         if promo:
             PromoService.record_usage(
                 promo=promo,
@@ -115,7 +94,6 @@ class OrderService:
                 order=order,
             )
 
-        # Создаём позиции и списываем остатки
         for pid, qty in cart_items.items():
             product = products_map[pid]
             OrderItem.objects.create(
@@ -138,18 +116,7 @@ class OrderService:
 
     @staticmethod
     def update_status(order_id: int, new_status: str) -> Order:
-        """Обновление статуса заказа с проверкой переходов.
-
-        Args:
-            order_id: ID заказа.
-            new_status: Новый статус.
-
-        Returns:
-            Обновлённый Order.
-
-        Raises:
-            InvalidStatusTransitionError: Если переход невалиден.
-        """
+        """Обновление статуса заказа."""
         order = Order.objects.get(id=order_id)
         allowed = STATUS_TRANSITIONS.get(order.status, ())
         if new_status not in allowed:
@@ -166,8 +133,8 @@ class OrderService:
             new_status=new_status,
         )
 
-        # Уведомляем покупателя о смене статуса (fire and forget)
-        NotificationService.notify_buyer(
+        # notify_buyer async из sync: MVP trade-off
+        NotificationService.notify_buyer(  # type: ignore[unused-coroutine]
             bot=None,
             user_tg_id=order.user_tg_id,
             order=order,

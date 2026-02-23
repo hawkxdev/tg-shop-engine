@@ -38,15 +38,7 @@ class NotificationService:
     async def notify_buyer(
         bot: Bot | None, user_tg_id: int, order: Order, event: str
     ) -> None:
-        """Уведомление покупателя о событии заказа.
-
-        Args:
-            bot: Экземпляр aiogram.Bot.
-            user_tg_id: Telegram ID покупателя.
-            order: Order.
-            event: Тип события (order_confirmed,
-                   payment_success, status_changed).
-        """
+        """Уведомление покупателя."""
         template = _BUYER_TEMPLATES.get(event)
         if not template:
             logger.warning('unknown_buyer_event', event=event)
@@ -57,6 +49,10 @@ class NotificationService:
             total=order.total,
             status=order.get_status_display(),
         )
+
+        if not bot:
+            logger.warning('no_bot_instance', event=event)
+            return
 
         try:
             await bot.send_message(user_tg_id, text)
@@ -69,14 +65,7 @@ class NotificationService:
     async def notify_admin(
         bot: Bot, chat_id: int, order: Order, event: str
     ) -> None:
-        """Уведомление администратора о событии заказа.
-
-        Args:
-            bot: Экземпляр aiogram.Bot.
-            chat_id: ID чата администратора.
-            order: Order.
-            event: Тип события (new_paid_order).
-        """
+        """Уведомление администратора."""
         template = _ADMIN_TEMPLATES.get(event)
         if not template:
             logger.warning('unknown_admin_event', event=event)

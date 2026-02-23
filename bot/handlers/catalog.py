@@ -1,4 +1,4 @@
-"""Обработчики каталога: /catalog, категории, товары, карточка товара."""
+"""Обработчики каталога."""
 
 import contextlib
 import math
@@ -39,7 +39,10 @@ async def on_catalog(message: Message) -> None:
 
 @router.callback_query(F.data.startswith('category:list:'))
 async def on_category_list(callback: CallbackQuery) -> None:
-    """Показать список категорий или товары категории (страница 1)."""
+    """Навигация по категориям."""
+    msg = callback.message
+    if not callback.data or not isinstance(msg, Message):
+        return
     category_id = int(callback.data.split(':')[2])
     if category_id == 0:
         categories = [
@@ -48,7 +51,7 @@ async def on_category_list(callback: CallbackQuery) -> None:
                 'name'
             )
         ]
-        await callback.message.edit_text(
+        await msg.edit_text(
             'Выберите категорию:',
             reply_markup=categories_keyboard(categories),
         )
@@ -61,6 +64,8 @@ async def on_category_list(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith('category:page:'))
 async def on_category_page(callback: CallbackQuery) -> None:
     """Показать товары категории на заданной странице."""
+    if not callback.data:
+        return
     _, _, category_id_str, page_str = callback.data.split(':')
     await _show_products(callback, int(category_id_str), int(page_str))
 
@@ -68,6 +73,9 @@ async def on_category_page(callback: CallbackQuery) -> None:
 @router.callback_query(F.data.startswith('product:view:'))
 async def on_product_view(callback: CallbackQuery) -> None:
     """Показать карточку товара с изображением."""
+    msg = callback.message
+    if not callback.data or not isinstance(msg, Message):
+        return
     product_id = int(callback.data.split(':')[2])
     try:
         product = await Product.objects.select_related('category').aget(
@@ -85,20 +93,18 @@ async def on_product_view(callback: CallbackQuery) -> None:
     )
     keyboard = product_card_keyboard(product.id, product.category_id)
 
-    if product.image:
-        photo = FSInputFile(product.image.path)
-        await callback.message.answer_photo(
+    if product.photo:
+        photo = FSInputFile(product.photo.path)
+        await msg.answer_photo(
             photo=photo,
             caption=text,
             reply_markup=keyboard,
             parse_mode='HTML',
         )
         with contextlib.suppress(Exception):
-            await callback.message.delete()
+            await msg.delete()
     else:
-        await callback.message.edit_text(
-            text, reply_markup=keyboard, parse_mode='HTML'
-        )
+        await msg.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
     await callback.answer()
 
 
@@ -107,7 +113,10 @@ async def _show_products(
     category_id: int,
     page: int,
 ) -> None:
-    """Вспомогательная функция: отобразить товары категории."""
+    """Отображение товаров категории."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     try:
         category = await Category.objects.aget(id=category_id, is_active=True)
     except Category.DoesNotExist:
@@ -134,7 +143,5 @@ async def _show_products(
 
     text = f'<b>{category.name}</b>\n\nСтраница {page} из {total_pages}:'
     keyboard = products_keyboard(products, category_id, page, total_pages)
-    await callback.message.edit_text(
-        text, reply_markup=keyboard, parse_mode='HTML'
-    )
+    await msg.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
     await callback.answer()

@@ -1,7 +1,8 @@
-"""Обработчики FSM оформления заказа: имя, телефон, адрес, промокод, подтверждение."""
+"""Обработчики checkout FSM."""
 
 from decimal import Decimal
 import re
+from typing import Any
 
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
@@ -30,13 +31,16 @@ _CANCEL_MSG = 'Оформление отменено. Корзина сохра�
 _DELIVERY_COST = Decimal(str(getattr(settings, 'DELIVERY_COST', 300) or 300))
 
 
-def _cart_subtotal(cart: dict) -> Decimal:
-    """Подсчитать сумму товаров в корзине."""
-    return sum(Decimal(item['price']) * item['qty'] for item in cart.values())
+def _cart_subtotal(cart: dict[str, Any]) -> Decimal:
+    """Подсчёт суммы корзины."""
+    total = Decimal('0')
+    for item in cart.values():
+        total += Decimal(item['price']) * item['qty']
+    return total
 
 
-def _order_summary_text(data: dict) -> str:
-    """Сформировать текст сводки заказа для подтверждения."""
+def _order_summary_text(data: dict[str, Any]) -> str:
+    """Текст сводки заказа."""
     cart = data.get('cart', {})
     subtotal = _cart_subtotal(cart)
     discount_amount = Decimal(data.get('discount_amount', '0'))
@@ -63,14 +67,9 @@ def _order_summary_text(data: dict) -> str:
     return '\n'.join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Шаг 1: Имя
-# ---------------------------------------------------------------------------
-
-
 @router.message(CheckoutState.waiting_name)
 async def on_waiting_name(message: Message, state: FSMContext) -> None:
-    """Принять имя пользователя."""
+    """Приём имени."""
     name = (message.text or '').strip()
     if not name:
         await message.answer(
@@ -87,14 +86,9 @@ async def on_waiting_name(message: Message, state: FSMContext) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Шаг 2: Телефон
-# ---------------------------------------------------------------------------
-
-
 @router.message(CheckoutState.waiting_phone)
 async def on_waiting_phone(message: Message, state: FSMContext) -> None:
-    """Принять и валидировать российский номер телефона."""
+    """Валидация телефона."""
     phone = (message.text or '').strip().replace(' ', '')
     if not _PHONE_RE.match(phone):
         await message.answer(
@@ -111,14 +105,9 @@ async def on_waiting_phone(message: Message, state: FSMContext) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Шаг 3: Адрес
-# ---------------------------------------------------------------------------
-
-
 @router.message(CheckoutState.waiting_address)
 async def on_waiting_address(message: Message, state: FSMContext) -> None:
-    """Принять адрес, нормализовать через DaData и отправить на подтверждение."""
+    """Приём и нормализация адреса."""
     raw_address = (message.text or '').strip()
     if not raw_address:
         await message.answer(
@@ -150,20 +139,18 @@ async def on_waiting_address(message: Message, state: FSMContext) -> None:
     )
 
 
-# ---------------------------------------------------------------------------
-# Шаг 3а: Подтверждение адреса
-# ---------------------------------------------------------------------------
-
-
 @router.callback_query(
     CheckoutState.confirm_address, F.data == 'address:confirm'
 )
 async def on_address_confirm(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
-    """Принять нормализованный адрес и перейти к промокоду."""
+    """Подтверждение адреса."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     await state.set_state(CheckoutState.waiting_promo)
-    await callback.message.edit_text(
+    await msg.edit_text(
         'Есть промокод? Введите его или пропустите этот шаг.',
         reply_markup=promo_keyboard(),
     )
@@ -174,23 +161,23 @@ async def on_address_confirm(
     CheckoutState.confirm_address, F.data == 'address:retry'
 )
 async def on_address_retry(callback: CallbackQuery, state: FSMContext) -> None:
-    """Вернуться к вводу адреса."""
+    """Повторный ввод адреса."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     await state.set_state(CheckoutState.waiting_address)
-    await callback.message.edit_text(
+    await msg.edit_text(
         'Введите адрес доставки (город, улица, дом):',
         reply_markup=cancel_keyboard(),
     )
     await callback.answer()
 
 
-# ---------------------------------------------------------------------------
-# Шаг 4: Промокод
-# ---------------------------------------------------------------------------
-
-
 @router.message(CheckoutState.waiting_promo)
 async def on_waiting_promo(message: Message, state: FSMContext) -> None:
-    """Принять и валидировать промокод через PromoService."""
+    """Валидация промокода."""
+    if not message.from_user:
+        return
     code = (message.text or '').strip().upper()
     if not code:
         await message.answer(
@@ -234,11 +221,14 @@ async def on_waiting_promo(message: Message, state: FSMContext) -> None:
 
 @router.callback_query(CheckoutState.waiting_promo, F.data == 'promo:skip')
 async def on_promo_skip(callback: CallbackQuery, state: FSMContext) -> None:
-    """Пропустить ввод промокода."""
+    """Пропуск промокода."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     await state.update_data(promo_code=None)
     await state.set_state(CheckoutState.confirm_order)
     data = await state.get_data()
-    await callback.message.edit_text(
+    await msg.edit_text(
         _order_summary_text(data),
         reply_markup=order_confirm_keyboard(),
         parse_mode='HTML',
@@ -246,20 +236,17 @@ async def on_promo_skip(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.answer()
 
 
-# ---------------------------------------------------------------------------
-# Шаг 5: Подтверждение заказа
-# ---------------------------------------------------------------------------
-
-
 @router.callback_query(CheckoutState.confirm_order, F.data == 'order:confirm')
 async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
-    """Создать заказ из FSM-данных и перейти к выбору оплаты."""
+    """Создание заказа."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     data = await state.get_data()
     cart = data.get('cart', {})
 
     cart_items = {int(pid): item['qty'] for pid, item in cart.items()}
 
-    # Загружаем промокод из БД, если был применён
     promo = None
     promo_id = data.get('promo_id')
     if promo_id:
@@ -283,7 +270,7 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
             delivery_cost=delivery_cost,
         )
     except InsufficientStockError as exc:
-        await callback.message.answer(
+        await msg.answer(
             f'❌ Недостаточно товара на складе: {exc}\n'
             'Скорректируйте корзину и попробуйте снова.'
         )
@@ -292,7 +279,7 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(cart={}, order_id=order.id)
     await state.set_state(CheckoutState.waiting_payment)
-    await callback.message.edit_text(
+    await msg.edit_text(
         f'✅ Заказ №{order.id} создан!\n\nВыберите способ оплаты:',
         reply_markup=payment_method_keyboard(order.id),
     )
@@ -303,51 +290,48 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
 async def on_order_cancel_confirm(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
-    """Отменить заказ на шаге подтверждения (корзина сохраняется)."""
+    """Отмена на подтверждении."""
     await _cancel_checkout(callback, state)
-
-
-# ---------------------------------------------------------------------------
-# Отмена на любом шаге
-# ---------------------------------------------------------------------------
 
 
 @router.callback_query(F.data == 'checkout:cancel')
 async def on_checkout_cancel(
     callback: CallbackQuery, state: FSMContext
 ) -> None:
-    """Отменить оформление заказа и сохранить корзину."""
+    """Отмена оформления."""
     await _cancel_checkout(callback, state)
-
-
-# ---------------------------------------------------------------------------
-# Вспомогательные функции
-# ---------------------------------------------------------------------------
 
 
 async def _show_order_summary(
     message: Message, state: FSMContext, *, edit: bool
 ) -> None:
-    """Показать сводку заказа для подтверждения."""
+    """Показ сводки заказа."""
     await state.set_state(CheckoutState.confirm_order)
     data = await state.get_data()
     text = _order_summary_text(data)
     if edit:
         await message.edit_text(
-            text, reply_markup=order_confirm_keyboard(), parse_mode='HTML'
+            text,
+            reply_markup=order_confirm_keyboard(),
+            parse_mode='HTML',
         )
     else:
         await message.answer(
-            text, reply_markup=order_confirm_keyboard(), parse_mode='HTML'
+            text,
+            reply_markup=order_confirm_keyboard(),
+            parse_mode='HTML',
         )
 
 
 async def _cancel_checkout(callback: CallbackQuery, state: FSMContext) -> None:
-    """Сбросить FSM, сохранив корзину."""
+    """Сброс FSM с сохранением корзины."""
+    msg = callback.message
+    if not isinstance(msg, Message):
+        return
     data = await state.get_data()
     cart = data.get('cart', {})
     await state.clear()
     if cart:
         await state.update_data(cart=cart)
-    await callback.message.answer(_CANCEL_MSG)
+    await msg.answer(_CANCEL_MSG)
     await callback.answer()
