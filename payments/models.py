@@ -9,10 +9,14 @@ PAYMENT_PROVIDER_CHOICES = [
     ('stars', 'Telegram Stars'),
 ]
 
+PAYMENT_STATUS_PENDING = 'pending'
+PAYMENT_STATUS_SUCCEEDED = 'succeeded'
+PAYMENT_STATUS_CANCELED = 'canceled'
+
 PAYMENT_STATUS_CHOICES = [
-    ('pending', 'Ожидает'),
-    ('succeeded', 'Успешно'),
-    ('canceled', 'Отменён'),
+    (PAYMENT_STATUS_PENDING, 'Ожидает'),
+    (PAYMENT_STATUS_SUCCEEDED, 'Успешно'),
+    (PAYMENT_STATUS_CANCELED, 'Отменён'),
 ]
 
 
@@ -37,13 +41,16 @@ class Payment(models.Model):
     status = models.CharField(
         max_length=20,
         choices=PAYMENT_STATUS_CHOICES,
-        default='pending',
+        default=PAYMENT_STATUS_PENDING,
     )
     provider_data = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = 'платёж'
+        verbose_name_plural = 'платежи'
+        ordering = ['-created_at']
         indexes = [
             models.Index(
                 fields=['provider_payment_id'],

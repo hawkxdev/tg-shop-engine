@@ -1,17 +1,19 @@
 """Webhook представления."""
 
 import json
-import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update
+from asgiref.sync import sync_to_async
+from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+import structlog
 
 from bot.setup import create_bot, create_dispatcher
 from payments.services import PaymentService
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Lazy singletons: init on first request
 _bot: Bot | None = None
@@ -64,13 +66,14 @@ async def yookassa_webhook(request: HttpRequest) -> HttpResponse:
 
     client_ip = _get_client_ip(request)
     try:
-        PaymentService.handle_yookassa_webhook(
+        await sync_to_async(PaymentService.handle_yookassa_webhook)(
             body=request.body,
             client_ip=client_ip,
         )
+    except PermissionDenied:
+        return HttpResponse(status=403)
     except Exception:
-        logger.exception(
-            'Ошибка обработки YooKassa webhook, IP: %s', client_ip
-        )
+        logger.exception('yookassa_webhook_error', client_ip=client_ip)
+        return HttpResponse(status=500)
 
     return HttpResponse(status=200)

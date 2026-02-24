@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 import uuid
 
 import pytest
@@ -72,15 +72,18 @@ class TestWebhookProcessing:
         order.refresh_from_db()
         assert order.status == 'paid'
 
-    @patch('payments.services.NotificationService')
-    def test_sends_notification(self, mock_notify_cls):
-        """Webhook отправляет уведомление покупателю."""
-        self._setup()
-        mock_notify_cls.notify_buyer = AsyncMock()
+    @patch('payments.services.logger')
+    def test_logs_notification_skipped(self, mock_logger):
+        """Webhook логирует пропуск уведомления."""
+        order = self._setup()
 
         PaymentService.handle_yookassa_webhook(
             body=self._webhook_body(),
             client_ip=self.TRUSTED_IP,
         )
 
-        mock_notify_cls.notify_buyer.assert_called_once()
+        mock_logger.warning.assert_called_once_with(
+            'notification_skipped',
+            order_id=order.id,
+            reason='sync_context_no_bot',
+        )

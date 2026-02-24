@@ -9,20 +9,42 @@ from django.db import transaction
 import structlog
 from yookassa import Payment as YooKassaPayment
 
-from bot.services.notification import NotificationService
-from payments.models import Payment
-from shop.models import Order
+from payments.models import (
+    PAYMENT_STATUS_CANCELED,
+    PAYMENT_STATUS_PENDING,
+    PAYMENT_STATUS_SUCCEEDED,
+    Payment,
+)
+from shop.models import ORDER_STATUS_PAID, Order
 
 logger = structlog.get_logger(__name__)
 
-_TRUSTED_IPS = frozenset(
-    {
-        '185.71.76.0',
-        '185.71.76.1',
-        '185.71.77.0',
-        '185.71.77.1',
-    }
+_DEFAULT_YOOKASSA_IPS = [
+    '185.71.76.0',
+    '185.71.76.1',
+    '185.71.77.0',
+    '185.71.77.1',
+]
+
+_TRUSTED_IPS: frozenset[str] = frozenset(
+    getattr(settings, 'YOOKASSA_TRUSTED_IPS', _DEFAULT_YOOKASSA_IPS)
 )
+
+
+def _build_yookassa_payload(order: Order) -> dict[str, Any]:
+    """Формирование payload для YooKassa API."""
+    return {
+        'amount': {
+            'value': str(order.total),
+            'currency': 'RUB',
+        },
+        'capture': True,
+        'confirmation': {
+            'type': 'redirect',
+            'return_url': settings.WEBHOOK_URL,
+        },
+        'description': f'Заказ {order.uuid}',
+    }
 
 
 class PaymentService:
@@ -34,18 +56,7 @@ class PaymentService:
         idempotency_key = str(order.uuid)
 
         response = YooKassaPayment.create(
-            {
-                'amount': {
-                    'value': str(order.total),
-                    'currency': 'RUB',
-                },
-                'capture': True,
-                'confirmation': {
-                    'type': 'redirect',
-                    'return_url': settings.WEBHOOK_URL,
-                },
-                'description': f'Заказ {order.uuid}',
-            },
+            _build_yookassa_payload(order),
             idempotency_key=idempotency_key,
         )
 
@@ -53,10 +64,10 @@ class PaymentService:
             order=order,
             provider='yookassa',
             provider_payment_id=response.id,
-            idempotency_key=order.uuid,
+            idempotency_key=str(order.uuid),
             amount=order.total,
             currency='RUB',
-            status='pending',
+            status=PAYMENT_STATUS_PENDING,
         )
 
         logger.info(
@@ -81,10 +92,10 @@ class PaymentService:
         Payment.objects.create(
             order=order,
             provider='stars',
-            idempotency_key=order.uuid,
+            idempotency_key=str(order.uuid),
             amount=order.total,
             currency='XTR',
-            status='pending',
+            status=PAYMENT_STATUS_PENDING,
         )
 
         logger.info('stars_invoice_created', order_id=order.id)
@@ -107,18 +118,28 @@ class PaymentService:
         if client_ip not in _TRUSTED_IPS:
             raise PermissionDenied(f'Недоверенный IP: {client_ip}')
 
-        data = json.loads(body)
-        payment_obj = data['object']
-        provider_payment_id = payment_obj['id']
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            raise PermissionDenied('Invalid JSON payload') from None
+
+        if data.get('event') != 'payment.succeeded':
+            return
+
+        payment_obj = data.get('object', {})
+        provider_payment_id = payment_obj.get('id')
+        if not provider_payment_id:
+            raise PermissionDenied('Missing payment ID in payload')
 
         payment = Payment.objects.select_for_update().get(
             provider_payment_id=provider_payment_id
         )
 
-        if payment.status == 'succeeded':
+        _TERMINAL = {PAYMENT_STATUS_SUCCEEDED, PAYMENT_STATUS_CANCELED}
+        if payment.status in _TERMINAL:
             return
 
-        payment.status = 'succeeded'
+        payment.status = PAYMENT_STATUS_SUCCEEDED
         payment.provider_data = payment_obj
         payment.save(
             update_fields=[
@@ -129,7 +150,7 @@ class PaymentService:
         )
 
         order = payment.order
-        order.status = 'paid'
+        order.status = ORDER_STATUS_PAID
         order.save(update_fields=['status', 'updated_at'])
         logger.info(
             'yookassa_webhook_processed',
@@ -137,12 +158,10 @@ class PaymentService:
             provider_payment_id=provider_payment_id,
         )
 
-        # notify_buyer async из sync: MVP trade-off
-        NotificationService.notify_buyer(  # type: ignore[unused-coroutine]
-            bot=None,
-            user_tg_id=order.user_tg_id,
-            order=order,
-            event='payment_success',
+        logger.warning(
+            'notification_skipped',
+            order_id=order.id,
+            reason='sync_context_no_bot',
         )
 
     @staticmethod
@@ -153,14 +172,14 @@ class PaymentService:
         """Обработка платежа Stars."""
         order = Order.objects.select_for_update().get(uuid=payload)
 
-        if order.status == 'paid':
+        if order.status == ORDER_STATUS_PAID:
             return
 
         payment = Payment.objects.select_for_update().get(
             order=order, provider='stars'
         )
 
-        payment.status = 'succeeded'
+        payment.status = PAYMENT_STATUS_SUCCEEDED
         payment.provider_payment_id = charge_id
         payment.provider_data = {
             'charge_id': charge_id,
@@ -176,7 +195,7 @@ class PaymentService:
             ]
         )
 
-        order.status = 'paid'
+        order.status = ORDER_STATUS_PAID
         order.save(update_fields=['status', 'updated_at'])
         logger.info(
             'stars_payment_processed',

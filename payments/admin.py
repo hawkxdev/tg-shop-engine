@@ -18,6 +18,7 @@ class PaymentAdmin(admin.ModelAdmin):
         'created_at',
     )
     list_filter = ('provider', 'status')
+    search_fields = ('provider_payment_id', 'idempotency_key')
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
