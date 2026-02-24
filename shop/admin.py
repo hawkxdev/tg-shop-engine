@@ -9,18 +9,30 @@ from django.contrib import admin
 from django.contrib.admin.views.decorators import (
     staff_member_required,
 )
-from django.db.models import Count, Sum
-from django.http import HttpResponse
+from django.db.models import Count, QuerySet, Sum
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 
 from shop.models import (
+    ORDER_STATUS_PAID,
     Category,
     Order,
     OrderItem,
     Product,
     PromoCode,
 )
+
+ANALYTICS_DEFAULT_PERIOD_DAYS = 30
+
+_CSV_INJECTION_CHARS = frozenset('=+-@\t\r')
+
+
+def _sanitize_csv(value: str) -> str:
+    """Экранирование CSV injection."""
+    if value and value[0] in _CSV_INJECTION_CHARS:
+        return "'" + value
+    return value
 
 
 class OrderItemInline(admin.TabularInline):
@@ -35,10 +47,14 @@ class OrderItemInline(admin.TabularInline):
         'price',
     )
 
-    def has_add_permission(self, request, obj=None):
+    def has_add_permission(
+        self, request: HttpRequest, obj: Order | None = None
+    ) -> bool:
         return False
 
-    def has_delete_permission(self, request, obj=None):
+    def has_delete_permission(
+        self, request: HttpRequest, obj: Order | None = None
+    ) -> bool:
         return False
 
 
@@ -48,6 +64,7 @@ class CategoryAdmin(admin.ModelAdmin):
 
     list_display = ('name', 'sort_order', 'is_active')
     list_filter = ('is_active',)
+    search_fields = ('name',)
 
 
 @admin.register(Product)
@@ -83,7 +100,9 @@ class OrderAdmin(admin.ModelAdmin):
     @admin.action(
         description='Экспорт выбранных заказов в CSV',
     )
-    def export_orders_csv(self, request, queryset):
+    def export_orders_csv(
+        self, request: HttpRequest, queryset: QuerySet[Order]
+    ) -> HttpResponse:
         """Экспорт заказов в CSV."""
         output = io.StringIO()
         output.write('\ufeff')  # UTF-8 BOM
@@ -112,9 +131,9 @@ class OrderAdmin(admin.ModelAdmin):
             writer.writerow(
                 [
                     str(order.uuid),
-                    order.user_name,
+                    _sanitize_csv(order.user_name),
                     order.user_phone,
-                    order.user_address,
+                    _sanitize_csv(order.user_address),
                     order.status,
                     str(order.subtotal),
                     str(order.discount_amount),
@@ -122,7 +141,7 @@ class OrderAdmin(admin.ModelAdmin):
                     str(order.total),
                     order.payment_method or '',
                     order.created_at.isoformat(),
-                    items,
+                    _sanitize_csv(items),
                 ]
             )
         response = HttpResponse(
@@ -146,24 +165,34 @@ class PromoCodeAdmin(admin.ModelAdmin):
         'is_active',
     )
     list_filter = ('is_active', 'discount_type')
+    search_fields = ('code',)
 
 
 @staff_member_required
-def analytics_view(request):
+def analytics_view(request: HttpRequest) -> HttpResponse:
     """Панель аналитики."""
     date_from_str = request.GET.get('date_from')
     date_to_str = request.GET.get('date_to')
     today = timezone.now().date()
 
-    if date_from_str:
-        date_from = date.fromisoformat(date_from_str)
-    else:
-        date_from = today - timedelta(days=30)
+    try:
+        date_from = (
+            date.fromisoformat(date_from_str) if date_from_str else None
+        )
+    except ValueError:
+        date_from = None
+    if date_from is None:
+        date_from = today - timedelta(days=ANALYTICS_DEFAULT_PERIOD_DAYS)
 
-    date_to = date.fromisoformat(date_to_str) if date_to_str else today
+    try:
+        date_to = date.fromisoformat(date_to_str) if date_to_str else None
+    except ValueError:
+        date_to = None
+    if date_to is None:
+        date_to = today
 
     qs = Order.objects.filter(
-        status='paid',
+        status=ORDER_STATUS_PAID,
         created_at__date__gte=date_from,
         created_at__date__lte=date_to,
     )

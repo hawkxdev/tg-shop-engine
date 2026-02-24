@@ -264,7 +264,7 @@ async def on_order_confirm(callback: CallbackQuery, state: FSMContext) -> None:
             user_name=data['name'],
             user_phone=data['phone'],
             user_address=data['address'],
-            user_address_raw=data.get('address_raw'),
+            user_address_raw=data.get('address_raw', ''),
             cart_items=cart_items,
             promo=promo,
             delivery_cost=delivery_cost,

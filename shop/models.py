@@ -1,6 +1,7 @@
 """Модели интернет-магазина."""
 
 from decimal import Decimal
+from typing import Any
 import uuid
 
 from django.core.validators import MinValueValidator
@@ -44,12 +45,10 @@ _TRANSLIT = {
 }
 
 
-def _make_slug(value):
+def _make_slug(value: str) -> str:
     """Транслитерация и генерация slug."""
-    result = []
-    for char in value.lower():
-        result.append(_TRANSLIT.get(char, char))
-    return slugify(''.join(result))
+    transliterated = ''.join(_TRANSLIT.get(c, c) for c in value.lower())
+    return slugify(transliterated)
 
 
 class Category(models.Model):
@@ -70,41 +69,54 @@ class Category(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.slug:
             self.slug = _make_slug(self.name)
         super().save(*args, **kwargs)
 
 
+ORDER_STATUS_NEW = 'new'
+ORDER_STATUS_PENDING = 'pending_payment'
+ORDER_STATUS_PAID = 'paid'
+ORDER_STATUS_SHIPPED = 'shipped'
+ORDER_STATUS_DELIVERED = 'delivered'
+ORDER_STATUS_CANCELLED = 'cancelled'
+
 ORDER_STATUS_CHOICES = [
-    ('new', 'Новый'),
-    ('pending_payment', 'Ожидает оплаты'),
-    ('paid', 'Оплачен'),
-    ('shipped', 'Отправлен'),
-    ('delivered', 'Доставлен'),
-    ('cancelled', 'Отменён'),
+    (ORDER_STATUS_NEW, 'Новый'),
+    (ORDER_STATUS_PENDING, 'Ожидает оплаты'),
+    (ORDER_STATUS_PAID, 'Оплачен'),
+    (ORDER_STATUS_SHIPPED, 'Отправлен'),
+    (ORDER_STATUS_DELIVERED, 'Доставлен'),
+    (ORDER_STATUS_CANCELLED, 'Отменён'),
 ]
+
+PAYMENT_SBP = 'sbp'
+PAYMENT_STARS = 'stars'
 
 PAYMENT_METHOD_CHOICES = [
-    ('sbp', 'СБП'),
-    ('stars', 'Telegram Stars'),
+    (PAYMENT_SBP, 'СБП'),
+    (PAYMENT_STARS, 'Telegram Stars'),
 ]
 
+DISCOUNT_PERCENTAGE = 'percentage'
+DISCOUNT_FREE_DELIVERY = 'free_delivery'
+
 DISCOUNT_TYPE_CHOICES = [
-    ('percentage', 'Процент'),
-    ('free_delivery', 'Бесплатная доставка'),
+    (DISCOUNT_PERCENTAGE, 'Процент'),
+    (DISCOUNT_FREE_DELIVERY, 'Бесплатная доставка'),
 ]
 
 STATUS_TRANSITIONS = {
-    'new': ('pending_payment',),
-    'pending_payment': ('paid', 'cancelled'),
-    'paid': ('shipped', 'cancelled'),
-    'shipped': ('delivered',),
-    'delivered': (),
-    'cancelled': (),
+    ORDER_STATUS_NEW: (ORDER_STATUS_PENDING,),
+    ORDER_STATUS_PENDING: (ORDER_STATUS_PAID, ORDER_STATUS_CANCELLED),
+    ORDER_STATUS_PAID: (ORDER_STATUS_SHIPPED, ORDER_STATUS_CANCELLED),
+    ORDER_STATUS_SHIPPED: (ORDER_STATUS_DELIVERED,),
+    ORDER_STATUS_DELIVERED: (),
+    ORDER_STATUS_CANCELLED: (),
 }
 
 
@@ -141,10 +153,10 @@ class Product(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         if not self.slug:
             self.slug = _make_slug(self.name)
         super().save(*args, **kwargs)
@@ -204,9 +216,13 @@ class Order(models.Model):
                 fields=['status'],
                 name='order_status',
             ),
+            models.Index(
+                fields=['-created_at'],
+                name='order_created_at',
+            ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Заказ {self.uuid} ({self.get_status_display()})'
 
 
@@ -229,7 +245,12 @@ class OrderItem(models.Model):
     )
     price = models.DecimalField(max_digits=10, decimal_places=2)
 
-    def __str__(self):
+    class Meta:
+        verbose_name = 'Позиция заказа'
+        verbose_name_plural = 'Позиции заказа'
+        ordering = ['id']
+
+    def __str__(self) -> str:
         return f'{self.product_name} x{self.quantity}'
 
 
@@ -254,10 +275,15 @@ class PromoCode(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    class Meta:
+        verbose_name = 'Промокод'
+        verbose_name_plural = 'Промокоды'
+        ordering = ['-created_at']
+
+    def __str__(self) -> str:
         return self.code
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         self.code = self.code.upper()
         super().save(*args, **kwargs)
 
@@ -279,6 +305,9 @@ class PromoCodeUsage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        verbose_name = 'Использование промокода'
+        verbose_name_plural = 'Использования промокодов'
+        ordering = ['-created_at']
         constraints = [
             models.UniqueConstraint(
                 fields=['promo_code', 'order'],
@@ -292,5 +321,5 @@ class PromoCodeUsage(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'{self.promo_code.code} → заказ {self.order_id}'

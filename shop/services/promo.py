@@ -2,11 +2,18 @@
 
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 import structlog
 
-from shop.models import Order, PromoCode, PromoCodeUsage
+from shop.models import (
+    DISCOUNT_FREE_DELIVERY,
+    DISCOUNT_PERCENTAGE,
+    Order,
+    PromoCode,
+    PromoCodeUsage,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -15,12 +22,13 @@ class PromoService:
     """Операции с промокодами."""
 
     @staticmethod
+    @transaction.atomic
     def validate_code(
         *, code: str, user_tg_id: int, subtotal: Decimal
     ) -> PromoCode | None:
         """Валидация промокода."""
         try:
-            promo = PromoCode.objects.get(
+            promo = PromoCode.objects.select_for_update().get(
                 code=code.upper(),
                 is_active=True,
             )
@@ -50,16 +58,17 @@ class PromoService:
         *, subtotal: Decimal, delivery_cost: Decimal, promo: PromoCode
     ) -> tuple[Decimal, Decimal]:
         """Расчёт скидки по промокоду."""
-        if promo.discount_type == 'percentage':
+        if promo.discount_type == DISCOUNT_PERCENTAGE:
             discount_amount = subtotal * promo.discount_value / Decimal('100')
             return discount_amount, delivery_cost
 
-        if promo.discount_type == 'free_delivery':
+        if promo.discount_type == DISCOUNT_FREE_DELIVERY:
             return Decimal('0'), Decimal('0')
 
         return Decimal('0'), delivery_cost
 
     @staticmethod
+    @transaction.atomic
     def record_usage(
         *, promo: PromoCode, user_tg_id: int, order: Order
     ) -> None:

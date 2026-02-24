@@ -66,24 +66,14 @@ class TestStatusHandler:
 class TestStatusChangeNotification:
     """Тесты уведомления покупателя при смене статуса заказа."""
 
-    def test_update_status_sends_notification(self):
-        """update_status вызывает notify_buyer с event='status_changed'."""
+    def test_update_status_logs_notification_skipped(self):
+        """update_status логирует notification_skipped."""
         order = OrderFactory(status='new', user_tg_id=42)
 
-        with patch(
-            'shop.services.order.NotificationService.notify_buyer',
-        ) as mock_notify:
+        with patch('shop.services.order.logger') as mock_logger:
             OrderService.update_status(order.id, 'pending_payment')
-            mock_notify.assert_called_once()
-
-    def test_update_status_notification_params(self):
-        """notify_buyer получает event='status_changed' и user_tg_id заказа."""
-        order = OrderFactory(status='new', user_tg_id=42)
-
-        with patch(
-            'shop.services.order.NotificationService.notify_buyer',
-        ) as mock_notify:
-            OrderService.update_status(order.id, 'pending_payment')
-            call_kwargs = mock_notify.call_args.kwargs
-            assert call_kwargs['event'] == 'status_changed'
-            assert call_kwargs['user_tg_id'] == 42
+            mock_logger.warning.assert_called_once_with(
+                'notification_skipped',
+                order_id=order.id,
+                reason='sync_context_no_bot',
+            )

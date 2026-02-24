@@ -51,5 +51,5 @@ class Payment(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f'Платёж {self.idempotency_key} ({self.get_status_display()})'

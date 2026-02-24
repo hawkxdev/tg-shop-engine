@@ -6,8 +6,8 @@ from django.db import transaction
 from django.db.models import F
 import structlog
 
-from bot.services.notification import NotificationService
 from shop.models import (
+    ORDER_STATUS_NEW,
     STATUS_TRANSITIONS,
     Order,
     OrderItem,
@@ -21,6 +21,10 @@ logger = structlog.get_logger(__name__)
 
 class InsufficientStockError(Exception):
     """Недостаточно товара на складе."""
+
+
+class OrderNotFoundError(Exception):
+    """Заказ не найден."""
 
 
 class InvalidStatusTransitionError(Exception):
@@ -38,7 +42,7 @@ class OrderService:
         user_name: str,
         user_phone: str,
         user_address: str,
-        user_address_raw: str | None = None,
+        user_address_raw: str = '',
         cart_items: dict[int, int],
         promo: PromoCode | None = None,
         delivery_cost: Decimal = Decimal('0'),
@@ -49,7 +53,7 @@ class OrderService:
             id__in=product_ids
         )
 
-        products_map = {}
+        products_map: dict[int, Product] = {}
         for product in products:
             qty = cart_items[product.id]
             if product.stock < qty:
@@ -78,8 +82,8 @@ class OrderService:
             user_name=user_name,
             user_phone=user_phone,
             user_address=user_address,
-            user_address_raw=user_address_raw or '',
-            status='new',
+            user_address_raw=user_address_raw,
+            status=ORDER_STATUS_NEW,
             subtotal=subtotal,
             discount_amount=discount_amount,
             delivery_cost=delivery_cost,
@@ -117,7 +121,10 @@ class OrderService:
     @staticmethod
     def update_status(order_id: int, new_status: str) -> Order:
         """Обновление статуса заказа."""
-        order = Order.objects.get(id=order_id)
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            raise OrderNotFoundError(f'Заказ {order_id} не найден') from None
         allowed = STATUS_TRANSITIONS.get(order.status, ())
         if new_status not in allowed:
             raise InvalidStatusTransitionError(
@@ -133,12 +140,11 @@ class OrderService:
             new_status=new_status,
         )
 
-        # notify_buyer async из sync: MVP trade-off
-        NotificationService.notify_buyer(  # type: ignore[unused-coroutine]
-            bot=None,
-            user_tg_id=order.user_tg_id,
-            order=order,
-            event='status_changed',
+        # MVP trade-off: bot instance недоступен из sync-контекста
+        logger.warning(
+            'notification_skipped',
+            order_id=order_id,
+            reason='sync_context_no_bot',
         )
 
         return order

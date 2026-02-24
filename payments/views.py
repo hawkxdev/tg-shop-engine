@@ -3,6 +3,7 @@
 import json
 import logging
 
+from aiogram import Bot, Dispatcher
 from aiogram.types import Update
 from django.http import HttpRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -13,18 +14,18 @@ from payments.services import PaymentService
 logger = logging.getLogger(__name__)
 
 # Lazy singletons: init on first request
-_bot = None
-_dp = None
+_bot: Bot | None = None
+_dp: Dispatcher | None = None
 
 
-def _get_bot():
+def _get_bot() -> Bot:
     global _bot
     if _bot is None:
         _bot = create_bot()
     return _bot
 
 
-def _get_dp():
+def _get_dp() -> Dispatcher:
     global _dp
     if _dp is None:
         _dp = create_dispatcher()
