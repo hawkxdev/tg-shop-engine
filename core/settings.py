@@ -56,6 +56,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
 
 _db_url = urlparse(os.environ['DATABASE_URL'])
 
@@ -173,4 +174,4 @@ DADATA_API_KEY = os.environ['DADATA_API_KEY']
 DADATA_SECRET = os.environ['DADATA_SECRET']
 
 # Доставка
-DELIVERY_COST = int(os.environ.get('DELIVERY_COST', '0'))
+DELIVERY_COST = int(os.environ.get('DELIVERY_COST', '300'))
