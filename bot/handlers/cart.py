@@ -27,7 +27,7 @@ def _get_cart(data: dict[str, Any]) -> dict[str, Any]:
     return cart
 
 
-def _cart_total(cart: dict[str, Any]) -> Decimal:
+def cart_total(cart: dict[str, Any]) -> Decimal:
     """Посчитать итоговую сумму корзины."""
     total = Decimal('0')
     for item in cart.values():
@@ -41,7 +41,7 @@ def _cart_text(cart: dict[str, Any]) -> str:
     for item in cart.values():
         total = Decimal(item['price']) * item['qty']
         lines.append(f'• {item["name"]} × {item["qty"]} = {total} ₽')
-    lines.append(f'\n<b>Итого: {_cart_total(cart)} ₽</b>')
+    lines.append(f'\n<b>Итого: {cart_total(cart)} ₽</b>')
     return '\n'.join(lines)
 
 
@@ -56,7 +56,6 @@ async def on_cart(message: Message, state: FSMContext) -> None:
     await message.answer(
         _cart_text(cart),
         reply_markup=cart_keyboard(cart),
-        parse_mode='HTML',
     )
 
 
@@ -106,7 +105,6 @@ async def on_cart_increase(callback: CallbackQuery, state: FSMContext) -> None:
         await msg.edit_text(
             _cart_text(cart),
             reply_markup=cart_keyboard(cart),
-            parse_mode='HTML',
         )
     await callback.answer()
 
@@ -133,7 +131,6 @@ async def on_cart_decrease(callback: CallbackQuery, state: FSMContext) -> None:
         await msg.edit_text(
             _cart_text(cart),
             reply_markup=cart_keyboard(cart),
-            parse_mode='HTML',
         )
     await callback.answer()
 
@@ -156,7 +153,6 @@ async def on_cart_remove(callback: CallbackQuery, state: FSMContext) -> None:
         await msg.edit_text(
             _cart_text(cart),
             reply_markup=cart_keyboard(cart),
-            parse_mode='HTML',
         )
     await callback.answer()
 

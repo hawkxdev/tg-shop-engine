@@ -1,7 +1,5 @@
 """Обработчики оплаты."""
 
-import contextlib
-
 from aiogram import F, Router
 from aiogram.types import (
     CallbackQuery,
@@ -10,11 +8,17 @@ from aiogram.types import (
     PreCheckoutQuery,
 )
 from asgiref.sync import sync_to_async
+import structlog
 
+from bot.services.notification import NotificationService
 from payments.services import PaymentService
 from shop.models import Order
 
+logger = structlog.get_logger(__name__)
+
 router = Router(name='payment')
+
+_ORDER_NOT_FOUND = 'Заказ не найден.'
 
 
 @router.callback_query(F.data.startswith('pay:sbp:'))
@@ -22,6 +26,8 @@ async def on_pay_sbp(callback: CallbackQuery) -> None:
     """Создание платежа СБП."""
     msg = callback.message
     if not callback.data or not isinstance(msg, Message):
+        return
+    if not callback.from_user:
         return
     order_id = int(callback.data.split(':')[2])
 
@@ -31,12 +37,13 @@ async def on_pay_sbp(callback: CallbackQuery) -> None:
             user_tg_id=callback.from_user.id,
         )
     except Order.DoesNotExist:
-        await callback.answer('Заказ не найден.', show_alert=True)
+        await callback.answer(_ORDER_NOT_FOUND, show_alert=True)
         return
 
     try:
         result = await sync_to_async(PaymentService.create_sbp_invoice)(order)
     except Exception:
+        logger.exception('sbp_invoice_failed', order_id=order_id)
         await callback.answer(
             'Ошибка создания платежа. Попробуйте позже.',
             show_alert=True,
@@ -59,6 +66,8 @@ async def on_pay_stars(callback: CallbackQuery) -> None:
     msg = callback.message
     if not callback.data or not isinstance(msg, Message):
         return
+    if not callback.from_user:
+        return
     order_id = int(callback.data.split(':')[2])
 
     try:
@@ -67,7 +76,7 @@ async def on_pay_stars(callback: CallbackQuery) -> None:
             user_tg_id=callback.from_user.id,
         )
     except Order.DoesNotExist:
-        await callback.answer('Заказ не найден.', show_alert=True)
+        await callback.answer(_ORDER_NOT_FOUND, show_alert=True)
         return
 
     try:
@@ -75,6 +84,7 @@ async def on_pay_stars(callback: CallbackQuery) -> None:
             order
         )
     except Exception:
+        logger.exception('stars_invoice_failed', order_id=order_id)
         await callback.answer(
             'Ошибка создания платежа. Попробуйте позже.',
             show_alert=True,
@@ -107,7 +117,7 @@ async def on_pre_checkout_query(
     try:
         order = await Order.objects.aget(uuid=payload)
     except Order.DoesNotExist:
-        await query.answer(ok=False, error_message='Заказ не найден.')
+        await query.answer(ok=False, error_message=_ORDER_NOT_FOUND)
         return
 
     async for item in order.items.select_related('product').all():
@@ -135,11 +145,7 @@ async def on_successful_payment(message: Message) -> None:
         amount=sp.total_amount,
     )
 
-    with contextlib.suppress(Exception):
-        from bot.services.notification import (
-            NotificationService,
-        )
-
+    try:
         order = await Order.objects.aget(uuid=sp.invoice_payload)
         await NotificationService.notify_buyer(
             bot=message.bot,
@@ -147,6 +153,8 @@ async def on_successful_payment(message: Message) -> None:
             order=order,
             event='payment_success',
         )
+    except Exception:
+        logger.exception('stars_notification_failed')
 
     await message.answer(
         'Оплата прошла успешно! Спасибо за заказ.\nСтатус заказа обновлён.'

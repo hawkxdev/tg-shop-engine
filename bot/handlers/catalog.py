@@ -99,12 +99,11 @@ async def on_product_view(callback: CallbackQuery) -> None:
             photo=photo,
             caption=text,
             reply_markup=keyboard,
-            parse_mode='HTML',
         )
         with contextlib.suppress(Exception):
             await msg.delete()
     else:
-        await msg.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+        await msg.edit_text(text, reply_markup=keyboard)
     await callback.answer()
 
 
@@ -143,5 +142,5 @@ async def _show_products(
 
     text = f'<b>{category.name}</b>\n\nСтраница {page} из {total_pages}:'
     keyboard = products_keyboard(products, category_id, page, total_pages)
-    await msg.edit_text(text, reply_markup=keyboard, parse_mode='HTML')
+    await msg.edit_text(text, reply_markup=keyboard)
     await callback.answer()

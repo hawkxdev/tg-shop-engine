@@ -11,6 +11,7 @@ router = Router(name='order_status')
 _NO_ORDERS = 'У вас ещё нет заказов.'
 
 
+@router.message(Command('status'))
 async def on_status(message: Message) -> None:
     """Показать статус последнего заказа пользователя."""
     if not message.from_user:
@@ -33,6 +34,3 @@ async def on_status(message: Message) -> None:
         f'Сумма: {order.total} ₽'
     )
     await message.answer(text)
-
-
-router.message(Command('status'))(on_status)

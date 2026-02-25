@@ -28,6 +28,7 @@ def create_dispatcher() -> Dispatcher:
     storage = RedisStorage.from_url(settings.REDIS_URL)
     dp = Dispatcher(storage=storage)
     dp.message.middleware(ThrottlingMiddleware())
+    dp.callback_query.middleware(ThrottlingMiddleware())
     dp.include_router(start_router)
     dp.include_router(catalog_router)
     dp.include_router(cart_router)
