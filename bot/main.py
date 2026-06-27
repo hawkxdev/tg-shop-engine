@@ -8,10 +8,19 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
 django.setup()
 
+from aiogram.types import BotCommand
 from django.conf import settings
 import structlog
 
 from bot.setup import create_bot, create_dispatcher
+
+_COMMANDS = [
+    BotCommand(command='start', description='Начать работу'),
+    BotCommand(command='catalog', description='Каталог товаров'),
+    BotCommand(command='cart', description='Корзина'),
+    BotCommand(command='status', description='Статус заказа'),
+    BotCommand(command='help', description='Список команд'),
+]
 
 logger = structlog.get_logger(__name__)
 
@@ -20,6 +29,8 @@ async def main() -> None:
     """Запуск бота."""
     bot = create_bot()
     dp = create_dispatcher()
+
+    await bot.set_my_commands(_COMMANDS)
 
     if settings.WEBHOOK_URL:
         webhook_url = f'{settings.WEBHOOK_URL}/webhook/telegram'
